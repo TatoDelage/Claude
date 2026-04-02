@@ -14,6 +14,7 @@ interface GameContextValue {
   game: GameState | null;
   setGame: (state: GameState) => void;
   adjustScore: (teamId: string, delta: number) => void;
+  applyScores: (deltas: Record<string, number>) => void;
   useWildcard: (teamId: string, wildcardId: WildcardId) => void;
   setRoundActive: (roundNumber: number) => void;
   resetGame: () => void;
@@ -100,6 +101,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [game, persist]
   );
 
+  const applyScores = useCallback(
+    (deltas: Record<string, number>) => {
+      if (!game) return;
+      const updated: GameState = {
+        ...game,
+        teams: game.teams.map((t) => ({
+          ...t,
+          score: t.score + (deltas[t.id] ?? 0),
+        })),
+      };
+      persist(updated);
+    },
+    [game, persist]
+  );
+
   const resetGame = useCallback(() => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(GAME_STATE_KEY);
@@ -109,7 +125,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ game, setGame, adjustScore, useWildcard, setRoundActive, resetGame }}
+      value={{ game, setGame, adjustScore, applyScores, useWildcard, setRoundActive, resetGame }}
     >
       {children}
     </GameContext.Provider>

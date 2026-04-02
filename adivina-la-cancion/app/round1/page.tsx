@@ -12,18 +12,18 @@ type Phase = "setup" | "playing" | "results";
 
 export default function Round1Page() {
   const router = useRouter();
-  const { game, applyScores, setRoundActive } = useGame();
+  const { game, hydrated, applyScores, setRoundActive } = useGame();
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [setup, setSetup] = useState<Round1Setup | null>(null);
   const [results, setResults] = useState<TurnResult[]>([]);
 
-  // Redirect if no game
+  // Redirect if no game (only after hydration to avoid false redirect)
   useEffect(() => {
-    if (!game) router.replace("/");
-  }, [game, router]);
+    if (hydrated && !game) router.replace("/");
+  }, [hydrated, game, router]);
 
-  if (!game) return null;
+  if (!hydrated || !game) return null;
 
   const handleSetupDone = (s: Round1Setup) => {
     setSetup(s);

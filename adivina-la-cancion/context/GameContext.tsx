@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   ReactNode,
 } from "react";
 import { GameState, WildcardId } from "@/lib/types";
@@ -12,6 +13,8 @@ import { GAME_STATE_KEY } from "@/lib/gameFactory";
 
 interface GameContextValue {
   game: GameState | null;
+  /** True once localStorage has been read on the client. */
+  hydrated: boolean;
   setGame: (state: GameState) => void;
   adjustScore: (teamId: string, delta: number) => void;
   applyScores: (deltas: Record<string, number>) => void;
@@ -23,15 +26,20 @@ interface GameContextValue {
 const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [game, setGameState] = useState<GameState | null>(() => {
-    if (typeof window === "undefined") return null;
+  // Always start null so server and client render identically on first pass.
+  const [game, setGameState] = useState<GameState | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Read localStorage only after mount (client-side only).
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(GAME_STATE_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (saved) setGameState(JSON.parse(saved));
     } catch {
-      return null;
+      // corrupted data — ignore
     }
-  });
+    setHydrated(true);
+  }, []);
 
   const persist = useCallback((state: GameState) => {
     setGameState(state);
@@ -125,7 +133,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ game, setGame, adjustScore, applyScores, useWildcard, setRoundActive, resetGame }}
+      value={{ game, hydrated, setGame, adjustScore, applyScores, useWildcard, setRoundActive, resetGame }}
     >
       {children}
     </GameContext.Provider>

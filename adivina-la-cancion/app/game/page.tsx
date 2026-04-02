@@ -21,13 +21,13 @@ const ROUND_LABELS: Record<number, string> = {
 
 export default function GamePage() {
   const router = useRouter();
-  const { game, resetGame } = useGame();
+  const { game, hydrated, resetGame } = useGame();
 
   useEffect(() => {
-    if (!game) router.replace("/");
-  }, [game, router]);
+    if (hydrated && !game) router.replace("/");
+  }, [hydrated, game, router]);
 
-  if (!game) return null;
+  if (!hydrated || !game) return null;
 
   const handleReset = () => {
     if (confirm("¿Seguro que quieres terminar la partida y volver al inicio?")) {

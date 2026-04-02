@@ -1,4 +1,14 @@
-import { GameState, Team, Wildcard, Round, TeamColor } from "./types";
+import { GameState, Team, Player, Wildcard, Round, TeamColor } from "./types";
+
+export interface PlayerConfig {
+  name: string;
+  isCaptain: boolean;
+}
+
+export interface TeamConfig {
+  name: string;
+  players: PlayerConfig[];
+}
 
 const TEAM_COLORS: TeamColor[] = ["violet", "amber", "teal", "rose"];
 
@@ -74,14 +84,22 @@ const ROUNDS: Round[] = [
   },
 ];
 
-export function createGame(teamNames: string[]): GameState {
-  const teams: Team[] = teamNames.map((name, i) => ({
-    id: `team-${i}`,
-    name,
-    score: 0,
-    color: TEAM_COLORS[i],
-    wildcards: WILDCARDS.map((w) => ({ ...w, used: false })),
-  }));
+export function createGame(teamConfigs: TeamConfig[]): GameState {
+  const teams: Team[] = teamConfigs.map((config, i) => {
+    const players: Player[] = config.players.map((p, j) => ({
+      id: `team-${i}-player-${j}`,
+      name: p.name,
+      isCaptain: p.isCaptain,
+    }));
+    return {
+      id: `team-${i}`,
+      name: config.name,
+      score: 0,
+      color: TEAM_COLORS[i],
+      wildcards: WILDCARDS.map((w) => ({ ...w, used: false })),
+      players,
+    };
+  });
 
   const rounds: Round[] = ROUNDS.map((r) => ({ ...r }));
   rounds[0].status = "active";

@@ -14,12 +14,19 @@ export interface Wildcard {
   used: boolean;
 }
 
+export interface Player {
+  id: string;
+  name: string;
+  isCaptain: boolean;
+}
+
 export interface Team {
   id: string;
   name: string;
   score: number;
   wildcards: Wildcard[];
   color: TeamColor;
+  players: Player[];
 }
 
 export type TeamColor = "violet" | "amber" | "teal" | "rose";

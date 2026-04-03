@@ -223,7 +223,7 @@ export default function Setup({
           disabled={!allComplete}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             allComplete
-              ? "bg-emerald-500 hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-500/25"
+              ? "bg-white hover:bg-zinc-100 active:scale-95 text-zinc-900 shadow-lg shadow-black/20"
               : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
           }`}
         >

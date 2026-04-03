@@ -140,7 +140,7 @@ export default function Results({
 
         <button
           onClick={onContinue}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
+          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 font-black shadow-lg shadow-black/20"
         >
           Ver marcador general →
         </button>

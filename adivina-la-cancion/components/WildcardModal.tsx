@@ -425,34 +425,43 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
   };
 
   const renderSuperWin = (step: Extract<Step, { id: "super_win" }>) => {
-    // Read scores from live game state (not stale allTeams prop)
-    const liveTeam = game?.teams.find((t) => t.id === team.id);
+    // Display values — read from live game state
     const liveRival = game?.teams.find((t) => t.id === selectedRivalId);
-    const myScore = liveTeam?.score ?? team.score;
-    const rivalScore = liveRival?.score ?? (allTeams.find((t) => t.id === selectedRivalId)?.score ?? 0);
+    const liveMe = game?.teams.find((t) => t.id === team.id);
+    const displayMyScore = liveMe?.score ?? 0;
+    const displayRivalScore = liveRival?.score ?? 0;
 
     const doTransfer = () => {
       if (!game) return;
-      // Atomic update: swap scores + mark wildcard used in one setGame call
-      // to avoid the stale-closure bug where two sequential persists overwrite each other.
-      const updated = {
+
+      // Read both scores fresh from game.teams at click time
+      const scoreA = game.teams.find((t) => t.id === team.id)?.score ?? 0;
+      const scoreB = game.teams.find((t) => t.id === selectedRivalId)?.score ?? 0;
+
+      // Simple swap: A gets B's points, B gets A's points
+      // Mark wildcard used in the same atomic setGame call
+      setGame({
         ...game,
         teams: game.teams.map((t) => {
           if (t.id === team.id) {
             return {
               ...t,
-              score: rivalScore,
-              wildcards: t.wildcards.map((w) => w.id === step.wc.id ? { ...w, used: true } : w),
+              score: scoreB,
+              wildcards: t.wildcards.map((w) =>
+                w.id === step.wc.id ? { ...w, used: true } : w
+              ),
             };
           }
-          if (t.id === selectedRivalId) return { ...t, score: myScore };
+          if (t.id === selectedRivalId) {
+            return { ...t, score: scoreA };
+          }
           return t;
         }),
-      };
-      setGame(updated);
+      });
+
       onUsed({
         wildcardId: step.wc.id,
-        supercomodin: { rivalTeamId: selectedRivalId, points: rivalScore },
+        supercomodin: { rivalTeamId: selectedRivalId, points: scoreB },
       });
     };
 
@@ -488,11 +497,11 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">Resultado del intercambio</p>
           <div className="flex items-center justify-between">
             <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
-            <span className="text-white font-black">{myScore} → {rivalScore}</span>
+            <span className="text-white font-black">{displayMyScore} → {displayRivalScore}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className={`font-bold ${TEAM_TEXT[liveRival?.color ?? "zinc"]}`}>{liveRival?.name ?? selectedRivalId}</span>
-            <span className="text-white font-black">{rivalScore} → {myScore}</span>
+            <span className={`font-bold ${TEAM_TEXT[liveRival?.color ?? "rose"]}`}>{liveRival?.name ?? "Rival"}</span>
+            <span className="text-white font-black">{displayRivalScore} → {displayMyScore}</span>
           </div>
         </div>
 

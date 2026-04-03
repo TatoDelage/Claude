@@ -62,7 +62,7 @@ type Step =
 // ─── Main component ───────────────────────────────────────────
 
 export default function WildcardModal({ team, allTeams, context = "free", onClose, onUsed }: Props) {
-  const { useWildcard, applyScores } = useGame();
+  const { game, useWildcard, applyScores, setGame } = useGame();
   const [step, setStep] = useState<Step>({ id: "grid" });
   const [selectedRivalId, setSelectedRivalId] = useState<string>(() => allTeams.find((t) => t.id !== team.id)?.id ?? "");
 
@@ -425,15 +425,34 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
   };
 
   const renderSuperWin = (step: Extract<Step, { id: "super_win" }>) => {
-    const rival = allTeams.find((t) => t.id === selectedRivalId)!
-    const pointsToTransfer = rival?.score ?? 0;
+    // Read scores from live game state (not stale allTeams prop)
+    const liveTeam = game?.teams.find((t) => t.id === team.id);
+    const liveRival = game?.teams.find((t) => t.id === selectedRivalId);
+    const myScore = liveTeam?.score ?? team.score;
+    const rivalScore = liveRival?.score ?? (allTeams.find((t) => t.id === selectedRivalId)?.score ?? 0);
 
     const doTransfer = () => {
-      useWildcard(team.id, step.wc.id);
-      applyScores({ [team.id]: pointsToTransfer, [selectedRivalId]: -pointsToTransfer });
+      if (!game) return;
+      // Atomic update: swap scores + mark wildcard used in one setGame call
+      // to avoid the stale-closure bug where two sequential persists overwrite each other.
+      const updated = {
+        ...game,
+        teams: game.teams.map((t) => {
+          if (t.id === team.id) {
+            return {
+              ...t,
+              score: rivalScore,
+              wildcards: t.wildcards.map((w) => w.id === step.wc.id ? { ...w, used: true } : w),
+            };
+          }
+          if (t.id === selectedRivalId) return { ...t, score: myScore };
+          return t;
+        }),
+      };
+      setGame(updated);
       onUsed({
         wildcardId: step.wc.id,
-        supercomodin: { rivalTeamId: selectedRivalId, points: pointsToTransfer },
+        supercomodin: { rivalTeamId: selectedRivalId, points: rivalScore },
       });
     };
 
@@ -442,12 +461,12 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
         <div className="text-4xl">⭐🏆</div>
         <div>
           <p className="text-xl font-black text-white">¡Supercomodín activado!</p>
-          <p className="text-sm text-zinc-400 mt-1">Los puntos del rival pasan a tu equipo</p>
+          <p className="text-sm text-zinc-400 mt-1">Los puntos se intercambian entre equipos</p>
         </div>
 
         {rivalTeams.length > 1 && (
           <div className="space-y-2 text-left">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest">¿Qué equipo pierde sus puntos?</p>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest">¿Con qué equipo intercambias?</p>
             {rivalTeams.map((rt) => (
               <button
                 key={rt.id}
@@ -465,12 +484,16 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           </div>
         )}
 
-        <div className="bg-zinc-800 rounded-xl p-3 text-sm">
-          <span className={`font-bold ${TEAM_TEXT[rival?.color]}`}>{rival?.name}</span>
-          {" "}pierde {" "}
-          <span className="font-black text-white">{pointsToTransfer} pts</span>
-          {" "}→ pasan a{" "}
-          <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
+        <div className="bg-zinc-800 rounded-xl p-3 text-sm space-y-1">
+          <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">Resultado del intercambio</p>
+          <div className="flex items-center justify-between">
+            <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
+            <span className="text-white font-black">{myScore} → {rivalScore}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className={`font-bold ${TEAM_TEXT[liveRival?.color ?? "zinc"]}`}>{liveRival?.name ?? selectedRivalId}</span>
+            <span className="text-white font-black">{rivalScore} → {myScore}</span>
+          </div>
         </div>
 
         <div className="flex gap-3">

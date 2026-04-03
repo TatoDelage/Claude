@@ -11,10 +11,10 @@ const STATUS_STYLES = {
     badgeText: "Completada",
   },
   active: {
-    circle: "bg-emerald-500 text-white ring-4 ring-emerald-500/30",
+    circle: "bg-white text-zinc-900 ring-4 ring-white/20",
     line: "bg-canvas-700",
     card: "opacity-100",
-    badge: "bg-emerald-500/20 text-emerald-300",
+    badge: "bg-white/10 text-zinc-300",
     badgeText: "En curso",
   },
   pending: {

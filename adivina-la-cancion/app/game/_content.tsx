@@ -46,7 +46,7 @@ export default function GameContent() {
       {/* Top bar */}
       <header className="sticky top-0 z-10 bg-canvas-950/90 backdrop-blur border-b border-canvas-700/60 px-4 py-3 flex items-center justify-between">
         <div>
-          <span className="text-sm font-black text-emerald-400">🎵 Adivina la Canción</span>
+          <span className="text-sm font-black text-white">🎵 Adivina la Canción</span>
           {activeRound && (
             <span className="ml-3 text-xs text-zinc-500">
               Ronda {activeRound.number} — {activeRound.name}
@@ -76,7 +76,7 @@ export default function GameContent() {
             {activeRoute ? (
               <button
                 onClick={() => router.push(activeRoute)}
-                className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-sm font-bold transition-all"
+                className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-100 active:scale-95 text-zinc-900 text-sm font-bold transition-all"
               >
                 {ROUND_LABELS[activeRound.number]}
               </button>

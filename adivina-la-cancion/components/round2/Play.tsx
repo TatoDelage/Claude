@@ -19,7 +19,7 @@ import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
 // ─── Color maps ───────────────────────────────────────────────
 
 const TEAM_COLOR: Record<string, { ring: string; badge: string; text: string }> = {
-  violet: { ring: "stroke-emerald-500", badge: "bg-violet-500", text: "text-violet-300" },
+  violet: { ring: "stroke-violet-500", badge: "bg-violet-500", text: "text-violet-300" },
   amber:  { ring: "stroke-amber-500",  badge: "bg-amber-500",  text: "text-amber-300"  },
   sky:   { ring: "stroke-sky-500",   badge: "bg-sky-500",   text: "text-sky-300"   },
   rose:   { ring: "stroke-rose-500",   badge: "bg-rose-500",   text: "text-rose-300"   },
@@ -422,7 +422,7 @@ export default function Play({
             <div className="flex flex-col gap-2 w-full">
               <button
                 onClick={startFragment}
-                className="w-full py-5 rounded-2xl font-black text-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
+                className="w-full py-5 rounded-2xl font-black text-xl bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 font-black shadow-lg shadow-black/20"
               >
                 ▶ Reproducir fragmento
               </button>
@@ -463,7 +463,7 @@ export default function Play({
             <TimerRing
               remaining={phase === "fragment" ? fragmentTimer.remaining : responseTimer.remaining}
               progress={phase === "fragment" ? fragmentTimer.progress : responseTimer.progress}
-              color={phase === "fragment" ? "stroke-emerald-500" : "stroke-amber-500"}
+              color={phase === "fragment" ? "stroke-zinc-300" : "stroke-amber-500"}
               label={phase === "fragment" ? "fragmento" : "responde"}
             />
 

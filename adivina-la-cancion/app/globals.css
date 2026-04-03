@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
-/* ── Dark greenish-gray surface palette ── */
+/* ── Dark near-black surface palette with barely-there greenish warmth ── */
 @theme {
-  --color-canvas-950: #0e1513;
-  --color-canvas-900: #131a17;
-  --color-canvas-800: #1b2521;
-  --color-canvas-700: #243029;
-  --color-canvas-600: #2f3f38;
+  --color-canvas-950: #0f1210;
+  --color-canvas-900: #141918;
+  --color-canvas-800: #1a1f1c;
+  --color-canvas-700: #252d29;
+  --color-canvas-600: #303a35;
 }
 
 * {

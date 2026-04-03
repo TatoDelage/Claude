@@ -108,7 +108,7 @@ export default function SetupPage() {
       <div className="text-center pt-10 pb-5 px-4">
         <div className="text-4xl mb-2">🎵</div>
         <h1 className="text-3xl font-black tracking-tight">
-          Adivina la <span className="text-emerald-400">Canción</span>
+          Adivina la <span className="text-white">Canción</span>
         </h1>
         <p className="text-zinc-500 text-sm mt-1">El juego musical en grupo</p>
       </div>
@@ -127,7 +127,7 @@ export default function SetupPage() {
                 onClick={() => handleTeamCount(n)}
                 className={`flex-1 py-4 rounded-2xl text-2xl font-black transition-all ${
                   teamCount === n
-                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105"
+                    ? "bg-white text-zinc-900 shadow-lg shadow-black/20 scale-105"
                     : "bg-canvas-800 text-zinc-400 hover:bg-canvas-700"
                 }`}
               >
@@ -246,7 +246,7 @@ export default function SetupPage() {
         {/* ── 4. Botón de inicio ── */}
         <button
           onClick={handleStart}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
+          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 font-black shadow-lg shadow-black/20"
         >
           ¡Empezar la partida! 🎮
         </button>

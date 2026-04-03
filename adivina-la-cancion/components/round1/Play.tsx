@@ -269,26 +269,40 @@ export default function Play({
         </div>
       </header>
 
-      {/* Compact score bar — always visible during play */}
-      <div className="flex gap-1.5 px-4 py-2 border-b border-zinc-800/40 justify-center flex-wrap">
-        {teams.map((team) => {
-          const tcc = TEAM_COLOR[team.color];
-          const isCurrent = team.id === currentTeam.id;
-          return (
-            <div
-              key={team.id}
-              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold transition-all ${
-                isCurrent
-                  ? `${tcc.badge} text-white`
-                  : "bg-zinc-800/80 text-zinc-400"
-              }`}
-            >
-              <span className={isCurrent ? "text-white" : tcc.text}>{team.name}</span>
-              <span className={isCurrent ? "text-white/70" : "text-zinc-500"}>{team.score}</span>
-            </div>
-          );
-        })}
-      </div>
+      {/* Live score bar — always visible during play */}
+      {(() => {
+        // Accumulate in-round points from judged results so display is live
+        const inRound: Record<string, number> = {};
+        for (const r of results) {
+          inRound[r.teamId] = (inRound[r.teamId] ?? 0) + (r.correct ? POINTS_CORRECT : 0);
+        }
+        return (
+          <div className="flex gap-2 px-4 py-3 border-b border-zinc-800/60 justify-center flex-wrap">
+            {teams.map((team) => {
+              const tcc = TEAM_COLOR[team.color];
+              const isCurrent = team.id === currentTeam.id;
+              const displayScore = team.score + (inRound[team.id] ?? 0);
+              return (
+                <div
+                  key={team.id}
+                  className={`flex flex-col items-center px-5 py-2 rounded-2xl font-bold transition-all ${
+                    isCurrent
+                      ? `${tcc.badge} text-white shadow-lg`
+                      : "bg-zinc-800 text-zinc-300"
+                  }`}
+                >
+                  <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
+                    {team.name}
+                  </span>
+                  <span className="text-2xl font-black tabular-nums leading-none">
+                    {displayScore}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Active effect banner */}
       {activeEffect && (

@@ -269,6 +269,27 @@ export default function Play({
         </div>
       </header>
 
+      {/* Compact score bar — always visible during play */}
+      <div className="flex gap-1.5 px-4 py-2 border-b border-zinc-800/40 justify-center flex-wrap">
+        {teams.map((team) => {
+          const tcc = TEAM_COLOR[team.color];
+          const isCurrent = team.id === currentTeam.id;
+          return (
+            <div
+              key={team.id}
+              className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold transition-all ${
+                isCurrent
+                  ? `${tcc.badge} text-white`
+                  : "bg-zinc-800/80 text-zinc-400"
+              }`}
+            >
+              <span className={isCurrent ? "text-white" : tcc.text}>{team.name}</span>
+              <span className={isCurrent ? "text-white/70" : "text-zinc-500"}>{team.score}</span>
+            </div>
+          );
+        })}
+      </div>
+
       {/* Active effect banner */}
       {activeEffect && (
         <div className="mx-4 mt-3 px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold text-center">

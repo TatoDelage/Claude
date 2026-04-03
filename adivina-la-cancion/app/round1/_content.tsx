@@ -20,7 +20,9 @@ export default function Round1Content() {
   const [results, setResults] = useState<TurnResult[]>([]);
 
   useEffect(() => {
-    if (hydrated && !game) router.replace("/");
+    if (!hydrated) return;
+    if (!game) { router.replace("/"); return; }
+    if (game.currentRound !== 1) router.replace("/game");
   }, [hydrated, game, router]);
 
   if (!hydrated || !game) return null;

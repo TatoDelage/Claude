@@ -1,7 +1,6 @@
 "use client";
 
 import { Round } from "@/lib/types";
-import { useGame } from "@/context/GameContext";
 
 const STATUS_STYLES = {
   completed: {
@@ -21,15 +20,13 @@ const STATUS_STYLES = {
   pending: {
     circle: "bg-zinc-800 text-zinc-600 border border-zinc-700",
     line: "bg-zinc-800",
-    card: "opacity-60",
+    card: "opacity-40",
     badge: "bg-zinc-800 text-zinc-600",
     badgeText: "Pendiente",
   },
 };
 
 export default function RoundTracker({ rounds }: { rounds: Round[] }) {
-  const { setRoundActive } = useGame();
-
   return (
     <section>
       <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-4">
@@ -53,10 +50,9 @@ export default function RoundTracker({ rounds }: { rounds: Round[] }) {
                 )}
               </div>
 
-              {/* Card */}
-              <button
-                onClick={() => setRoundActive(round.number)}
-                className={`flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-left transition-all hover:border-zinc-700 active:scale-[0.99] ${s.card}`}
+              {/* Card — display only, no click */}
+              <div
+                className={`flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 transition-all ${s.card}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
@@ -73,7 +69,7 @@ export default function RoundTracker({ rounds }: { rounds: Round[] }) {
                     {s.badgeText}
                   </span>
                 </div>
-              </button>
+              </div>
             </div>
           );
         })}

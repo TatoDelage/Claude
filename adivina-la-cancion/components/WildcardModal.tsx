@@ -64,6 +64,7 @@ type Step =
 export default function WildcardModal({ team, allTeams, context = "free", onClose, onUsed }: Props) {
   const { useWildcard, applyScores } = useGame();
   const [step, setStep] = useState<Step>({ id: "grid" });
+  const [selectedRivalId, setSelectedRivalId] = useState<string>(() => allTeams.find((t) => t.id !== team.id)?.id ?? "");
 
   const rivalTeams = allTeams.filter((t) => t.id !== team.id);
 
@@ -401,12 +402,9 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           disabled={!canReveal}
           onClick={() => {
             if (success && rivalTeams.length > 0) {
-              if (rivalTeams.length === 1) {
-                setStep({ id: "super_win", wc: step.wc, rivalTeamId: rivalTeams[0].id });
-              } else {
-                // pick rival — go to win step with no pre-selected rival
-                setStep({ id: "super_win", wc: step.wc, rivalTeamId: rivalTeams[0].id });
-              }
+              const rivalId = rivalTeams[0].id;
+              setSelectedRivalId(rivalId);
+              setStep({ id: "super_win", wc: step.wc, rivalTeamId: rivalId });
             } else if (canReveal) {
               useWildcard(team.id, step.wc.id);
               onUsed({ wildcardId: step.wc.id, supercomodin: null });
@@ -427,8 +425,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
   };
 
   const renderSuperWin = (step: Extract<Step, { id: "super_win" }>) => {
-    const [selectedRivalId, setSelectedRivalId] = useState(step.rivalTeamId);
-    const rival = allTeams.find((t) => t.id === selectedRivalId)!;
+    const rival = allTeams.find((t) => t.id === selectedRivalId)!
     const pointsToTransfer = rival?.score ?? 0;
 
     const doTransfer = () => {

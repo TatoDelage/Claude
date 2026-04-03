@@ -12,6 +12,7 @@ import {
 } from "@/lib/round1";
 import { useTimer } from "@/lib/useTimer";
 import WildcardModal, { WildcardEffect } from "@/components/WildcardModal";
+import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
 
 // ─── Sub-components ───────────────────────────────────────────
 
@@ -115,7 +116,7 @@ export default function Play({
   const [lastResult, setLastResult] = useState<boolean | null>(null);
 
   // ── Wildcard state
-  const [wildcardOpen, setWildcardOpen] = useState(false);
+  const [wildcardTeamId, setWildcardTeamId] = useState<string | null>(null);
   const [cantanteMode, setCantanteMode] = useState(false);
   const [blockedPlayer, setBlockedPlayer] = useState<{ name: string } | null>(null);
   const [activeEffect, setActiveEffect] = useState<string | null>(null); // banner text
@@ -185,15 +186,15 @@ export default function Play({
   };
 
   // ── Wildcard modal handlers
-  const openWildcard = () => {
+  const openWildcard = (teamId: string) => {
     pausedPhaseRef.current = phase;
     if (phase === "fragment") fragmentTimer.stop();
     if (phase === "response") responseTimer.stop();
-    setWildcardOpen(true);
+    setWildcardTeamId(teamId);
   };
 
   const closeWildcard = () => {
-    setWildcardOpen(false);
+    setWildcardTeamId(null);
     const paused = pausedPhaseRef.current;
     if (paused === "fragment") fragmentTimer.resume(handleFragmentEnd);
     if (paused === "response") responseTimer.resume(() => setPhase("judging"));
@@ -308,12 +309,28 @@ export default function Play({
               >
                 ▶ Reproducir fragmento
               </button>
-              <button
-                onClick={openWildcard}
-                className="w-full py-2.5 rounded-2xl font-bold text-sm bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all text-zinc-300"
-              >
-                🃏 Usar comodín de {currentTeam.name}
-              </button>
+              {teams.map((team) => {
+                const ctx: WildcardContext = team.id === currentTeam.id ? "my_turn" : "rival_turn";
+                const count = availableCount(team.wildcards, ctx);
+                const tcc = TEAM_COLOR[team.color];
+                return (
+                  <button
+                    key={team.id}
+                    onClick={count > 0 ? () => openWildcard(team.id) : undefined}
+                    disabled={count === 0}
+                    className={`w-full py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-between px-4 ${
+                      count > 0
+                        ? "bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300"
+                        : "bg-zinc-900 text-zinc-600 cursor-default"
+                    }`}
+                  >
+                    <span>🃏 <span className={tcc.text}>{team.name}</span></span>
+                    <span className={count > 0 ? tcc.text : "text-zinc-700"}>
+                      {count > 0 ? `${count} comodín${count !== 1 ? "es" : ""}` : "agotados"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -337,12 +354,32 @@ export default function Play({
               >
                 {phase === "fragment" ? "Parar fragmento →" : "Ya respondieron →"}
               </button>
-              <button
-                onClick={openWildcard}
-                className="w-full py-2 rounded-2xl font-bold text-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 active:scale-95 transition-all text-zinc-500"
-              >
-                🃏 Comodín — pausa el tiempo
-              </button>
+              <div className="flex gap-1.5">
+                {teams.map((team) => {
+                  const ctx: WildcardContext = team.id === currentTeam.id ? "my_turn" : "rival_turn";
+                  const count = availableCount(team.wildcards, ctx);
+                  const tcc = TEAM_COLOR[team.color];
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={count > 0 ? () => openWildcard(team.id) : undefined}
+                      disabled={count === 0}
+                      className={`flex-1 py-2 rounded-xl font-bold text-xs transition-all ${
+                        count > 0
+                          ? "bg-zinc-900 border border-zinc-800 hover:border-zinc-700 active:scale-95"
+                          : "bg-zinc-900/50 border border-zinc-900 cursor-default"
+                      }`}
+                    >
+                      <span className={count > 0 ? tcc.text : "text-zinc-700"}>
+                        🃏 {team.name}
+                      </span>
+                      {count > 0 && (
+                        <span className="block text-zinc-600 text-[10px] leading-none mt-0.5">{count} disp.</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -379,14 +416,19 @@ export default function Play({
       </div>
 
       {/* Wildcard modal — pauses timers */}
-      {wildcardOpen && (
-        <WildcardModal
-          team={currentTeam}
-          allTeams={teams}
-          onClose={closeWildcard}
-          onUsed={handleWildcardUsed}
-        />
-      )}
+      {wildcardTeamId && (() => {
+        const wildcardTeam = teams.find((t) => t.id === wildcardTeamId)!;
+        const ctx: WildcardContext = wildcardTeamId === currentTeam.id ? "my_turn" : "rival_turn";
+        return (
+          <WildcardModal
+            team={wildcardTeam}
+            allTeams={teams}
+            context={ctx}
+            onClose={closeWildcard}
+            onUsed={handleWildcardUsed}
+          />
+        );
+      })()}
     </div>
   );
 }

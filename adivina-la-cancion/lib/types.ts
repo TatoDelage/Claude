@@ -6,12 +6,16 @@ export type WildcardId =
   | "otra"
   | "supercomodin";
 
+/** Defensa: usable only on your own turn. Ataque: rival turn only. Universal: always. */
+export type WildcardType = "defensa" | "ataque" | "universal";
+
 export interface Wildcard {
   id: WildcardId;
   name: string;
   emoji: string;
   description: string;
   used: boolean;
+  type: WildcardType;
 }
 
 export interface Player {

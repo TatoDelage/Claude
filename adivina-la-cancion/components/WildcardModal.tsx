@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Team, WildcardId, Wildcard } from "@/lib/types";
 import { useGame } from "@/context/GameContext";
+import { WildcardContext, isAvailable, blockedReason } from "@/lib/wildcardUtils";
 
 // ─── Public types ─────────────────────────────────────────────
 
@@ -21,6 +22,8 @@ interface Props {
   team: Team;
   /** All teams (needed for Silencio and Supercomodín) */
   allTeams: Team[];
+  /** When used in-game: "my_turn" (defensa available) or "rival_turn" (ataque available). Default "free" (all available). */
+  context?: WildcardContext;
   onClose: () => void;
   onUsed: (effect: WildcardEffect) => void;
 }
@@ -58,7 +61,7 @@ type Step =
 
 // ─── Main component ───────────────────────────────────────────
 
-export default function WildcardModal({ team, allTeams, onClose, onUsed }: Props) {
+export default function WildcardModal({ team, allTeams, context = "free", onClose, onUsed }: Props) {
   const { useWildcard, applyScores } = useGame();
   const [step, setStep] = useState<Step>({ id: "grid" });
 
@@ -72,7 +75,7 @@ export default function WildcardModal({ team, allTeams, onClose, onUsed }: Props
 
   // ── Select from grid
   const selectWildcard = (wc: Wildcard) => {
-    if (wc.used) return;
+    if (wc.used || !isAvailable(wc, context)) return;
     if (wc.id === "silencio") return setStep({ id: "silencio_pick", wc });
     if (wc.id === "supercomodin") return setStep({ id: "super1", wc });
     setStep({ id: "detail", wc });
@@ -91,29 +94,41 @@ export default function WildcardModal({ team, allTeams, onClose, onUsed }: Props
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {team.wildcards.map((wc) => (
-          <button
-            key={wc.id}
-            onClick={() => selectWildcard(wc)}
-            disabled={wc.used}
-            className={`relative p-3 rounded-2xl border text-left transition-all active:scale-95 ${
-              wc.used
-                ? "bg-zinc-900/40 border-zinc-800 opacity-40 cursor-default"
-                : "bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700"
-            }`}
-          >
-            {wc.used && (
-              <span className="absolute top-2 right-2 text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded-full font-medium">
-                Gastado
-              </span>
-            )}
-            <div className="text-2xl mb-1">{wc.emoji}</div>
-            <p className="text-sm font-bold text-white leading-tight">{wc.name}</p>
-            <p className="text-xs text-zinc-400 mt-0.5 leading-snug line-clamp-2">
-              {wc.description}
-            </p>
-          </button>
-        ))}
+        {team.wildcards.map((wc) => {
+          const blocked = !wc.used && !isAvailable(wc, context);
+          const reason = blockedReason(wc, context);
+          const unavailable = wc.used || blocked;
+          return (
+            <button
+              key={wc.id}
+              onClick={() => selectWildcard(wc)}
+              disabled={unavailable}
+              className={`relative p-3 rounded-2xl border text-left transition-all active:scale-95 ${
+                wc.used
+                  ? "bg-zinc-900/40 border-zinc-800 opacity-40 cursor-default"
+                  : blocked
+                  ? "bg-zinc-900/60 border-zinc-800/60 opacity-60 cursor-default"
+                  : "bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700"
+              }`}
+            >
+              {wc.used && (
+                <span className="absolute top-2 right-2 text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded-full font-medium">
+                  Gastado
+                </span>
+              )}
+              {blocked && reason && (
+                <span className="absolute top-2 right-2 text-xs bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium leading-tight text-right">
+                  {reason}
+                </span>
+              )}
+              <div className="text-2xl mb-1">{wc.emoji}</div>
+              <p className={`text-sm font-bold leading-tight ${unavailable ? "text-zinc-500" : "text-white"}`}>{wc.name}</p>
+              <p className="text-xs text-zinc-500 mt-0.5 leading-snug line-clamp-2">
+                {wc.description}
+              </p>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

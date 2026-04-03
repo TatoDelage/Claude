@@ -1,4 +1,4 @@
-import { GameState, Team, Player, Wildcard, Round, TeamColor } from "./types";
+import { GameState, Team, Player, Wildcard, Round, TeamColor, WildcardType } from "./types";
 
 export interface PlayerConfig {
   name: string;
@@ -12,42 +12,57 @@ export interface TeamConfig {
 
 const TEAM_COLORS: TeamColor[] = ["violet", "amber", "teal", "rose"];
 
+const WILDCARD_TYPES: Record<string, WildcardType> = {
+  tiempo: "defensa",
+  cantante: "defensa",
+  otra: "defensa",
+  silencio: "ataque",
+  robo: "ataque",
+  supercomodin: "universal",
+};
+
 const WILDCARDS: Omit<Wildcard, "used">[] = [
   {
     id: "tiempo",
     name: "Tiempo",
     emoji: "⏱️",
     description: "Tiempo extra de escucha",
+    type: WILDCARD_TYPES.tiempo,
   },
   {
     id: "silencio",
     name: "Silencio",
     emoji: "🔇",
     description: "Bloquea un jugador rival",
+    type: WILDCARD_TYPES.silencio,
   },
   {
     id: "cantante",
     name: "Cantante",
     emoji: "🎤",
     description: "Solo acertar el artista",
+    type: WILDCARD_TYPES.cantante,
   },
   {
     id: "robo",
     name: "Robo",
     emoji: "🎭",
     description: "Roba la canción del rival",
+    type: WILDCARD_TYPES.robo,
   },
   {
     id: "otra",
     name: "Otra canción",
     emoji: "🔄",
     description: "Cambia la canción sin penalización",
+    type: WILDCARD_TYPES.otra,
   },
   {
     id: "supercomodin",
     name: "Supercomodín",
     emoji: "⭐",
     description: "Tararear y predecir aciertos",
+    type: WILDCARD_TYPES.supercomodin,
   },
 ];
 

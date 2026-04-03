@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
 import Scoreboard from "@/components/Scoreboard";
 import RoundTracker from "@/components/RoundTracker";
-import WildcardsPanel from "@/components/WildcardsPanel";
+import WildcardModal from "@/components/WildcardModal";
 
 const ROUND_ROUTES: Record<number, string> = {
   1: "/round1",
@@ -22,6 +22,7 @@ const ROUND_LABELS: Record<number, string> = {
 export default function GameContent() {
   const router = useRouter();
   const { game, hydrated, resetGame } = useGame();
+  const [wildcardTeamId, setWildcardTeamId] = useState<string | null>(null);
 
   useEffect(() => {
     if (hydrated && !game) router.replace("/");
@@ -84,19 +85,31 @@ export default function GameContent() {
           </div>
         )}
 
-        {/* Scoreboard */}
-        <Scoreboard teams={game.teams} />
+        {/* Scoreboard — includes "Usar comodín" button per team */}
+        <Scoreboard
+          teams={game.teams}
+          onWildcard={(teamId) => setWildcardTeamId(teamId)}
+        />
 
         <div className="border-t border-zinc-800/60" />
 
         <RoundTracker rounds={game.rounds} />
 
-        <div className="border-t border-zinc-800/60" />
-
-        <WildcardsPanel teams={game.teams} />
-
         <div className="h-6" />
       </div>
+
+      {/* Wildcard modal */}
+      {wildcardTeamId && (() => {
+        const wildcardTeam = game.teams.find((t) => t.id === wildcardTeamId);
+        return wildcardTeam ? (
+          <WildcardModal
+            team={wildcardTeam}
+            allTeams={game.teams}
+            onClose={() => setWildcardTeamId(null)}
+            onUsed={() => setWildcardTeamId(null)}
+          />
+        ) : null;
+      })()}
     </main>
   );
 }

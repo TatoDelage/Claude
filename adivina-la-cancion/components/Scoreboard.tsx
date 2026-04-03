@@ -43,9 +43,16 @@ const COLOR_MAP: Record<
 
 const SCORE_STEPS = [10, 20, 50, 100];
 
-function TeamCard({ team }: { team: Team }) {
+function TeamCard({
+  team,
+  onWildcard,
+}: {
+  team: Team;
+  onWildcard?: () => void;
+}) {
   const { adjustScore } = useGame();
   const c = COLOR_MAP[team.color];
+  const availableWildcards = team.wildcards.filter((w) => !w.used).length;
 
   return (
     <div
@@ -85,11 +92,31 @@ function TeamCard({ team }: { team: Team }) {
           </button>
         ))}
       </div>
+
+      {/* Wildcard button */}
+      {onWildcard && (
+        <button
+          onClick={availableWildcards > 0 ? onWildcard : undefined}
+          className={`w-full py-2 rounded-xl text-xs font-bold transition-all ${
+            availableWildcards > 0
+              ? `${c.plus} text-white opacity-90 hover:opacity-100 active:scale-95`
+              : "bg-zinc-800 text-zinc-600 cursor-default"
+          }`}
+        >
+          🃏 Comodín{availableWildcards > 0 ? ` (${availableWildcards})` : " — agotados"}
+        </button>
+      )}
     </div>
   );
 }
 
-export default function Scoreboard({ teams }: { teams: Team[] }) {
+export default function Scoreboard({
+  teams,
+  onWildcard,
+}: {
+  teams: Team[];
+  onWildcard?: (teamId: string) => void;
+}) {
   const sorted = [...teams].sort((a, b) => b.score - a.score);
   const leader = sorted[0];
 
@@ -110,7 +137,11 @@ export default function Scoreboard({ teams }: { teams: Team[] }) {
       </div>
       <div className="flex gap-3">
         {teams.map((team) => (
-          <TeamCard key={team.id} team={team} />
+          <TeamCard
+            key={team.id}
+            team={team}
+            onWildcard={onWildcard ? () => onWildcard(team.id) : undefined}
+          />
         ))}
       </div>
     </section>

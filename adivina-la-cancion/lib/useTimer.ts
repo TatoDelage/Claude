@@ -10,7 +10,6 @@ export function useTimer() {
     if (!running) return;
     if (remaining <= 0) {
       setRunning(false);
-      // defer so setState batching doesn't eat the callback
       setTimeout(() => onCompleteRef.current?.(), 0);
       return;
     }
@@ -27,8 +26,20 @@ export function useTimer() {
 
   const stop = useCallback(() => setRunning(false), []);
 
+  /** Resume countdown from current remaining (after stop). */
+  const resume = useCallback((onComplete?: () => void) => {
+    if (onComplete) onCompleteRef.current = onComplete;
+    setRunning(true);
+  }, []);
+
+  /** Add seconds to the running (or paused) timer. */
+  const addTime = useCallback((seconds: number) => {
+    durationRef.current = durationRef.current + seconds;
+    setRemaining((r) => r + seconds);
+  }, []);
+
   const duration = durationRef.current;
   const progress = duration > 0 ? remaining / duration : 0;
 
-  return { remaining, running, progress, start, stop };
+  return { remaining, running, progress, start, stop, resume, addTime };
 }

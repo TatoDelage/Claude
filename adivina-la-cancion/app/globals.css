@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* ── Dark greenish-gray surface palette ── */
+@theme {
+  --color-canvas-950: #0e1513;
+  --color-canvas-900: #131a17;
+  --color-canvas-800: #1b2521;
+  --color-canvas-700: #243029;
+  --color-canvas-600: #2f3f38;
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--color-canvas-950);
 }

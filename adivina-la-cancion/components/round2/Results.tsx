@@ -6,14 +6,14 @@ import { TurnResult, scoresByTeam, POINTS_CORRECT, POINTS_FAIL } from "@/lib/rou
 const TEAM_ACCENT: Record<string, string> = {
   violet: "bg-violet-500",
   amber: "bg-amber-500",
-  teal: "bg-teal-500",
+  sky: "bg-sky-500",
   rose: "bg-rose-500",
 };
 
 const TEAM_TEXT: Record<string, string> = {
   violet: "text-violet-300",
   amber: "text-amber-300",
-  teal: "text-teal-300",
+  sky: "text-sky-300",
   rose: "text-rose-300",
 };
 
@@ -39,8 +39,8 @@ export default function Results({
   const totalTurns = results.length;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      <header className="px-4 pt-6 pb-4 border-b border-zinc-800/60 text-center">
+    <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
+      <header className="px-4 pt-6 pb-4 border-b border-canvas-700/60 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
           Ronda 2 completada
         </p>
@@ -65,7 +65,7 @@ export default function Results({
                 className={`rounded-2xl p-4 text-center border ${
                   isLeader
                     ? `${TEAM_ACCENT[team.color]} border-transparent`
-                    : "bg-zinc-900 border-zinc-800"
+                    : "bg-canvas-900 border-canvas-700"
                 }`}
               >
                 {isLeader && <p className="text-xs font-bold text-white/80 mb-1">👑 Líder</p>}
@@ -88,14 +88,14 @@ export default function Results({
           const log = logByTeam[team.id] ?? [];
           const teamPts = scores[team.id] ?? 0;
           return (
-            <section key={team.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+            <section key={team.id} className="bg-canvas-900 border border-canvas-700 rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-canvas-700">
                 <span className={`text-sm font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
                 <span className="text-sm font-black text-white">
                   {teamPts > 0 ? `+${teamPts}` : teamPts} pts
                 </span>
               </div>
-              <div className="divide-y divide-zinc-800/60">
+              <div className="divide-y divide-canvas-700/60">
                 {log.map((r, i) => {
                   const label =
                     [r.song.title, r.song.artist].filter(Boolean).join(" — ") || "Sin info";
@@ -116,7 +116,7 @@ export default function Results({
                       {r.rebounds.filter((rb) => rb.choice !== "pass").map((rb) => {
                         const rbt = teams.find((t) => t.id === rb.teamId)!;
                         return (
-                          <div key={rb.teamId} className="flex items-center justify-between gap-3 pl-3 border-l-2 border-zinc-800">
+                          <div key={rb.teamId} className="flex items-center justify-between gap-3 pl-3 border-l-2 border-canvas-700">
                             <p className={`text-xs ${TEAM_TEXT[rbt.color]}`}>
                               ↩ {rbt.name}
                             </p>
@@ -140,7 +140,7 @@ export default function Results({
 
         <button
           onClick={onContinue}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-violet-500 hover:bg-violet-400 active:scale-95 transition-all shadow-lg shadow-violet-500/25"
+          className="w-full py-4 rounded-2xl font-black text-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
         >
           Ver marcador general →
         </button>

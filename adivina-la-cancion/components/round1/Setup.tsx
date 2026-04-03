@@ -15,14 +15,14 @@ import {
 const TEAM_COLORS: Record<string, string> = {
   violet: "text-violet-300 border-violet-700/50 bg-violet-950/40",
   amber: "text-amber-300 border-amber-700/50 bg-amber-950/40",
-  teal: "text-teal-300 border-teal-700/50 bg-teal-950/40",
+  sky: "text-sky-300 border-sky-700/50 bg-sky-950/40",
   rose: "text-rose-300 border-rose-700/50 bg-rose-950/40",
 };
 
 const TEAM_ACCENT: Record<string, string> = {
   violet: "bg-violet-500",
   amber: "bg-amber-500",
-  teal: "bg-teal-500",
+  sky: "bg-sky-500",
   rose: "bg-rose-500",
 };
 
@@ -50,7 +50,7 @@ function DurationControl({
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
           onClick={() => onChange(Math.max(min, value - 5))}
-          className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg transition-colors active:scale-95"
+          className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
         >
           −
         </button>
@@ -59,7 +59,7 @@ function DurationControl({
         </span>
         <button
           onClick={() => onChange(Math.min(max, value + 5))}
-          className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg transition-colors active:scale-95"
+          className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
         >
           +
         </button>
@@ -117,9 +117,9 @@ export default function Setup({
   const accent = TEAM_ACCENT[currentTeam.color];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
       {/* Header */}
-      <header className="px-4 pt-6 pb-4 border-b border-zinc-800/60">
+      <header className="px-4 pt-6 pb-4 border-b border-canvas-700/60">
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
           Ronda 1 · Preparación
         </p>
@@ -131,7 +131,7 @@ export default function Setup({
 
       <div className="flex-1 overflow-auto px-4 py-5 space-y-6 max-w-2xl mx-auto w-full">
         {/* Timer config */}
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+        <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
             Tiempos
           </p>
@@ -143,7 +143,7 @@ export default function Setup({
             min={5}
             max={60}
           />
-          <div className="border-t border-zinc-800" />
+          <div className="border-t border-canvas-700" />
           <DurationControl
             label="Respuesta"
             hint="Tiempo para responder en equipo"
@@ -166,8 +166,8 @@ export default function Setup({
                   activeTeam === i
                     ? `${TEAM_ACCENT[team.color]} text-white shadow-lg`
                     : done
-                    ? "bg-zinc-800 text-zinc-300"
-                    : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                    ? "bg-canvas-800 text-zinc-300"
+                    : "bg-canvas-900 text-zinc-500 border border-canvas-700"
                 }`}
               >
                 {done && activeTeam !== i ? "✓ " : ""}
@@ -190,14 +190,14 @@ export default function Setup({
                 placeholder="Título"
                 value={song.title}
                 onChange={(e) => updateSong(currentTeam.id, i, "title", e.target.value)}
-                className="w-full bg-zinc-900/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                className="w-full bg-canvas-900/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
               />
               <input
                 type="text"
                 placeholder="Artista"
                 value={song.artist}
                 onChange={(e) => updateSong(currentTeam.id, i, "artist", e.target.value)}
-                className="w-full bg-zinc-900/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                className="w-full bg-canvas-900/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
               />
             </div>
           ))}
@@ -211,7 +211,7 @@ export default function Setup({
               className={`flex-1 h-1.5 rounded-full ${
                 teamComplete(team.id)
                   ? TEAM_ACCENT[team.color]
-                  : "bg-zinc-800"
+                  : "bg-canvas-800"
               }`}
             />
           ))}
@@ -223,8 +223,8 @@ export default function Setup({
           disabled={!allComplete}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             allComplete
-              ? "bg-violet-500 hover:bg-violet-400 active:scale-95 shadow-lg shadow-violet-500/25"
-              : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+              ? "bg-emerald-500 hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-500/25"
+              : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
           }`}
         >
           {allComplete ? "¡Empezar Ronda 1! 🎵" : "Rellena todas las canciones"}

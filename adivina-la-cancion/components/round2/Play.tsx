@@ -19,9 +19,9 @@ import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
 // ─── Color maps ───────────────────────────────────────────────
 
 const TEAM_COLOR: Record<string, { ring: string; badge: string; text: string }> = {
-  violet: { ring: "stroke-violet-500", badge: "bg-violet-500", text: "text-violet-300" },
+  violet: { ring: "stroke-emerald-500", badge: "bg-violet-500", text: "text-violet-300" },
   amber:  { ring: "stroke-amber-500",  badge: "bg-amber-500",  text: "text-amber-300"  },
-  teal:   { ring: "stroke-teal-500",   badge: "bg-teal-500",   text: "text-teal-300"   },
+  sky:   { ring: "stroke-sky-500",   badge: "bg-sky-500",   text: "text-sky-300"   },
   rose:   { ring: "stroke-rose-500",   badge: "bg-rose-500",   text: "text-rose-300"   },
 };
 
@@ -57,7 +57,7 @@ function TimerRing({
   return (
     <div className="relative flex items-center justify-center">
       <svg width="180" height="180" className="-rotate-90">
-        <circle cx="90" cy="90" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-zinc-800" />
+        <circle cx="90" cy="90" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-canvas-800" />
         <circle
           cx="90" cy="90" r={r} fill="none" stroke="currentColor" strokeWidth="8"
           className={`${isLow ? "stroke-red-500" : color} transition-all duration-1000`}
@@ -80,7 +80,7 @@ function SongReveal({ song }: { song: SongEntry }) {
   return (
     <button
       onClick={() => setRevealed((v) => !v)}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs transition-all active:scale-95"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-canvas-900/80 border border-canvas-700 text-xs transition-all active:scale-95"
     >
       <span className="text-zinc-500">{revealed ? "🙈" : "👁"}</span>
       {revealed ? (
@@ -94,7 +94,7 @@ function SongReveal({ song }: { song: SongEntry }) {
 
 function SongRevealJudging({ song, cantanteMode }: { song: SongEntry; cantanteMode: boolean }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl px-5 py-4 text-center">
+    <div className="bg-canvas-900 border border-canvas-700/50 rounded-2xl px-5 py-4 text-center">
       {cantanteMode && (
         <p className="text-xs font-bold text-amber-400 mb-1 uppercase tracking-widest">
           🎤 Solo artista válido
@@ -315,9 +315,9 @@ export default function Play({
   const songNumber = turn.songIndex + 1;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
       {/* Header */}
-      <header className="px-4 pt-5 pb-3 border-b border-zinc-800/60 flex items-center justify-between">
+      <header className="px-4 pt-5 pb-3 border-b border-canvas-700/60 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
             Ronda 2 · Subimos nivel
@@ -333,7 +333,7 @@ export default function Play({
               className={`w-2 h-2 rounded-full ${
                 i < turnIndex
                   ? results[i]?.primaryCorrect ? "bg-green-500" : "bg-red-800"
-                  : i === turnIndex ? tc.badge : "bg-zinc-800"
+                  : i === turnIndex ? tc.badge : "bg-canvas-800"
               }`}
             />
           ))}
@@ -341,7 +341,7 @@ export default function Play({
       </header>
 
       {/* Live score bar */}
-      <div className="flex gap-2 px-4 py-3 border-b border-zinc-800/60 justify-center flex-wrap">
+      <div className="flex gap-2 px-4 py-3 border-b border-canvas-700/60 justify-center flex-wrap">
         {teams.map((team) => {
           const tcc = TEAM_COLOR[team.color];
           const isCurrent = team.id === currentTeam.id;
@@ -350,7 +350,7 @@ export default function Play({
             <div
               key={team.id}
               className={`flex flex-col items-center px-5 py-2 rounded-2xl font-bold transition-all ${
-                isCurrent ? `${tcc.badge} text-white shadow-lg` : "bg-zinc-800 text-zinc-300"
+                isCurrent ? `${tcc.badge} text-white shadow-lg` : "bg-canvas-800 text-zinc-300"
               }`}
             >
               <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
@@ -371,7 +371,7 @@ export default function Play({
 
       {/* Blocked player banner */}
       {blockedPlayer && (
-        <div className="mx-4 mt-2 px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs text-center">
+        <div className="mx-4 mt-2 px-3 py-1.5 rounded-xl bg-canvas-800 border border-canvas-700 text-zinc-400 text-xs text-center">
           🔇 {blockedPlayer.name} no puede responder
         </div>
       )}
@@ -422,7 +422,7 @@ export default function Play({
             <div className="flex flex-col gap-2 w-full">
               <button
                 onClick={startFragment}
-                className="w-full py-5 rounded-2xl font-black text-xl bg-violet-500 hover:bg-violet-400 active:scale-95 transition-all shadow-lg shadow-violet-500/25"
+                className="w-full py-5 rounded-2xl font-black text-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
               >
                 ▶ Reproducir fragmento
               </button>
@@ -437,8 +437,8 @@ export default function Play({
                     disabled={count === 0}
                     className={`w-full py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-between px-4 ${
                       count > 0
-                        ? "bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300"
-                        : "bg-zinc-900 text-zinc-600 cursor-default"
+                        ? "bg-canvas-800 hover:bg-canvas-700 active:scale-95 text-zinc-300"
+                        : "bg-canvas-900 text-zinc-600 cursor-default"
                     }`}
                   >
                     <span>🃏 <span className={tcc.text}>{team.name}</span></span>
@@ -463,7 +463,7 @@ export default function Play({
             <TimerRing
               remaining={phase === "fragment" ? fragmentTimer.remaining : responseTimer.remaining}
               progress={phase === "fragment" ? fragmentTimer.progress : responseTimer.progress}
-              color={phase === "fragment" ? "stroke-violet-500" : "stroke-amber-500"}
+              color={phase === "fragment" ? "stroke-emerald-500" : "stroke-amber-500"}
               label={phase === "fragment" ? "fragmento" : "responde"}
             />
 
@@ -472,7 +472,7 @@ export default function Play({
             <div className="flex flex-col gap-2 w-full">
               <button
                 onClick={phase === "fragment" ? skipFragment : skipResponse}
-                className="w-full py-3 rounded-2xl font-semibold text-sm bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all text-zinc-300"
+                className="w-full py-3 rounded-2xl font-semibold text-sm bg-canvas-800 hover:bg-canvas-700 active:scale-95 transition-all text-zinc-300"
               >
                 {phase === "fragment" ? "Parar fragmento →" : "Ya respondieron →"}
               </button>
@@ -488,8 +488,8 @@ export default function Play({
                       disabled={count === 0}
                       className={`flex-1 py-2 rounded-xl font-bold text-xs transition-all ${
                         count > 0
-                          ? "bg-zinc-900 border border-zinc-800 hover:border-zinc-700 active:scale-95"
-                          : "bg-zinc-900/50 border border-zinc-900 cursor-default"
+                          ? "bg-canvas-900 border border-canvas-700 hover:border-canvas-700 active:scale-95"
+                          : "bg-canvas-900/50 border border-zinc-900 cursor-default"
                       }`}
                     >
                       <span className={count > 0 ? tcc.text : "text-zinc-700"}>🃏 {team.name}</span>
@@ -563,7 +563,7 @@ export default function Play({
               </button>
               <button
                 onClick={handleReboundPass}
-                className="w-full py-3 rounded-2xl font-bold text-sm bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all text-zinc-400"
+                className="w-full py-3 rounded-2xl font-bold text-sm bg-canvas-800 hover:bg-canvas-700 active:scale-95 transition-all text-zinc-400"
               >
                 Pasar · 0 pts
               </button>
@@ -599,7 +599,7 @@ export default function Play({
 
             <button
               onClick={skipReboundResponse}
-              className="w-full py-3 rounded-2xl font-semibold text-sm bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all text-zinc-300"
+              className="w-full py-3 rounded-2xl font-semibold text-sm bg-canvas-800 hover:bg-canvas-700 active:scale-95 transition-all text-zinc-300"
             >
               Ya respondieron →
             </button>

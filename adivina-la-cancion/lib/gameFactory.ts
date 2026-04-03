@@ -10,7 +10,7 @@ export interface TeamConfig {
   players: PlayerConfig[];
 }
 
-const TEAM_COLORS: TeamColor[] = ["violet", "amber", "teal", "rose"];
+const TEAM_COLORS: TeamColor[] = ["violet", "amber", "sky", "rose"];
 
 const WILDCARD_TYPES: Record<string, WildcardType> = {
   tiempo: "defensa",

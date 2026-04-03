@@ -42,11 +42,11 @@ export default function GameContent() {
   const activeRoute = activeRound ? ROUND_ROUTES[activeRound.number] : null;
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
+    <main className="min-h-screen bg-canvas-950 text-white">
       {/* Top bar */}
-      <header className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur border-b border-zinc-800/60 px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-canvas-950/90 backdrop-blur border-b border-canvas-700/60 px-4 py-3 flex items-center justify-between">
         <div>
-          <span className="text-sm font-black text-violet-400">🎵 Adivina la Canción</span>
+          <span className="text-sm font-black text-emerald-400">🎵 Adivina la Canción</span>
           {activeRound && (
             <span className="ml-3 text-xs text-zinc-500">
               Ronda {activeRound.number} — {activeRound.name}
@@ -65,7 +65,7 @@ export default function GameContent() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
         {/* Play active round CTA */}
         {activeRound && (
-          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
+          <div className="bg-canvas-900 border border-zinc-700/60 rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs text-zinc-500 uppercase tracking-widest">En curso</p>
               <p className="font-black text-white truncate">
@@ -76,7 +76,7 @@ export default function GameContent() {
             {activeRoute ? (
               <button
                 onClick={() => router.push(activeRoute)}
-                className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 active:scale-95 text-white text-sm font-bold transition-all"
+                className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-sm font-bold transition-all"
               >
                 {ROUND_LABELS[activeRound.number]}
               </button>
@@ -92,7 +92,7 @@ export default function GameContent() {
           onWildcard={(teamId) => setWildcardTeamId(teamId)}
         />
 
-        <div className="border-t border-zinc-800/60" />
+        <div className="border-t border-canvas-700/60" />
 
         <RoundTracker rounds={game.rounds} />
 

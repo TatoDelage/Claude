@@ -33,7 +33,7 @@ export interface Team {
   players: Player[];
 }
 
-export type TeamColor = "violet" | "amber" | "teal" | "rose";
+export type TeamColor = "violet" | "amber" | "sky" | "rose";
 
 export type RoundStatus = "pending" | "active" | "completed";
 

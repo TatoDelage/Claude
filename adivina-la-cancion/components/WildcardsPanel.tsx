@@ -9,25 +9,25 @@ const COLOR_MAP: Record<string, { header: string; used: string; active: string; 
     header: "text-violet-300",
     border: "border-violet-700/40",
     active: "bg-violet-900/40 border-violet-700/60 hover:bg-violet-900/60",
-    used: "bg-zinc-900/40 border-zinc-800 opacity-40",
+    used: "bg-canvas-900/40 border-canvas-700 opacity-40",
   },
   amber: {
     header: "text-amber-300",
     border: "border-amber-700/40",
     active: "bg-amber-900/40 border-amber-700/60 hover:bg-amber-900/60",
-    used: "bg-zinc-900/40 border-zinc-800 opacity-40",
+    used: "bg-canvas-900/40 border-canvas-700 opacity-40",
   },
-  teal: {
-    header: "text-teal-300",
-    border: "border-teal-700/40",
-    active: "bg-teal-900/40 border-teal-700/60 hover:bg-teal-900/60",
-    used: "bg-zinc-900/40 border-zinc-800 opacity-40",
+  sky: {
+    header: "text-sky-300",
+    border: "border-sky-700/40",
+    active: "bg-sky-900/40 border-sky-700/60 hover:bg-sky-900/60",
+    used: "bg-canvas-900/40 border-canvas-700 opacity-40",
   },
   rose: {
     header: "text-rose-300",
     border: "border-rose-700/40",
     active: "bg-rose-900/40 border-rose-700/60 hover:bg-rose-900/60",
-    used: "bg-zinc-900/40 border-zinc-800 opacity-40",
+    used: "bg-canvas-900/40 border-canvas-700 opacity-40",
   },
 };
 

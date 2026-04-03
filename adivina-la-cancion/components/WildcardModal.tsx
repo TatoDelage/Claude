@@ -35,14 +35,14 @@ const TIEMPO_EXTRA = 15;
 const TEAM_ACCENT: Record<string, string> = {
   violet: "bg-violet-500",
   amber: "bg-amber-500",
-  teal: "bg-teal-500",
+  sky: "bg-sky-500",
   rose: "bg-rose-500",
 };
 
 const TEAM_TEXT: Record<string, string> = {
   violet: "text-violet-300",
   amber: "text-amber-300",
-  teal: "text-teal-300",
+  sky: "text-sky-300",
   rose: "text-rose-300",
 };
 
@@ -106,19 +106,19 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
               disabled={unavailable}
               className={`relative p-3 rounded-2xl border text-left transition-all active:scale-95 ${
                 wc.used
-                  ? "bg-zinc-900/40 border-zinc-800 opacity-40 cursor-default"
+                  ? "bg-canvas-900/40 border-canvas-700 opacity-40 cursor-default"
                   : blocked
-                  ? "bg-zinc-900/60 border-zinc-800/60 opacity-60 cursor-default"
-                  : "bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700"
+                  ? "bg-canvas-900/60 border-canvas-700/60 opacity-60 cursor-default"
+                  : "bg-canvas-800 border-canvas-700 hover:border-zinc-600 hover:bg-canvas-700"
               }`}
             >
               {wc.used && (
-                <span className="absolute top-2 right-2 text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded-full font-medium">
+                <span className="absolute top-2 right-2 text-xs bg-canvas-700 text-zinc-400 px-1.5 py-0.5 rounded-full font-medium">
                   Gastado
                 </span>
               )}
               {blocked && reason && (
-                <span className="absolute top-2 right-2 text-xs bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium leading-tight text-right">
+                <span className="absolute top-2 right-2 text-xs bg-canvas-800 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium leading-tight text-right">
                   {reason}
                 </span>
               )}
@@ -154,7 +154,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           <p className="text-sm text-zinc-400">{effectHints[wc.id]}</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-sm">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-canvas-800 text-zinc-300 font-semibold text-sm">
             Cancelar
           </button>
           <button
@@ -195,7 +195,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
                   useWildcard(team.id, wc.id);
                   onUsed({ wildcardId: wc.id, silencio: { playerId: p.id, playerName: p.name } });
                 }}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-left transition-all active:scale-95"
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-canvas-800 hover:bg-canvas-700 border border-canvas-700 text-left transition-all active:scale-95"
               >
                 {p.isCaptain && <span className="text-amber-400 text-sm">👑</span>}
                 <div>
@@ -258,7 +258,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
                   next[i] = e.target.value;
                   setStep({ ...step, inputs: next });
                 }}
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500"
+                className="flex-1 bg-canvas-800 border border-canvas-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500"
               />
             </div>
           ))}
@@ -271,7 +271,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           className={`w-full py-3 rounded-xl font-black text-sm transition-all ${
             allFilled
               ? `${TEAM_ACCENT[team.color]} text-white`
-              : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+              : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
           }`}
         >
           El jugador elige y predice →
@@ -299,7 +299,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
             className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
               step.chosenIdx === i
                 ? `${TEAM_ACCENT[team.color]} border-transparent text-white`
-                : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600"
+                : "bg-canvas-800 border-canvas-700 text-zinc-300 hover:border-zinc-600"
             }`}
           >
             <span className="font-black text-sm w-5">{letter}</span>
@@ -309,19 +309,19 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
       </div>
 
       {/* Prediction stepper */}
-      <div className="bg-zinc-800 rounded-xl p-3">
+      <div className="bg-canvas-800 rounded-xl p-3">
         <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest">Predicción: nº de oyentes que acertarán</p>
         <div className="flex items-center justify-between">
           <button
             onClick={() => setStep({ ...step, prediction: Math.max(0, step.prediction - 1) })}
-            className="w-10 h-10 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold"
+            className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
           >
             −
           </button>
           <span className="text-3xl font-black tabular-nums">{step.prediction}</span>
           <button
             onClick={() => setStep({ ...step, prediction: step.prediction + 1 })}
-            className="w-10 h-10 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold"
+            className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
           >
             +
           </button>
@@ -342,7 +342,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
         className={`w-full py-3 rounded-xl font-black text-sm ${
           step.chosenIdx !== null
             ? `${TEAM_ACCENT[team.color]} text-white`
-            : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+            : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
         }`}
       >
         Los demás intentan adivinar →
@@ -365,12 +365,12 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           </p>
         </div>
 
-        <div className="bg-zinc-800 rounded-xl p-3">
+        <div className="bg-canvas-800 rounded-xl p-3">
           <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest">¿Cuántos acertaron?</p>
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep({ ...step, actual: Math.max(0, (step.actual ?? 0) - 1) })}
-              className="w-10 h-10 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold"
+              className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
             >
               −
             </button>
@@ -379,7 +379,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
             </span>
             <button
               onClick={() => setStep({ ...step, actual: (step.actual ?? 0) + 1 })}
-              className="w-10 h-10 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-xl font-bold"
+              className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
             >
               +
             </button>
@@ -391,7 +391,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
             className={`p-3 rounded-xl text-center font-bold text-sm ${
               success
                 ? "bg-green-500/15 text-green-400 border border-green-500/30"
-                : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                : "bg-canvas-800 text-zinc-400 border border-canvas-700"
             }`}
           >
             {success ? "✓ ¡Predicción acertada!" : "✗ Predicción incorrecta"}
@@ -414,8 +414,8 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
             canReveal
               ? success
                 ? "bg-green-600 hover:bg-green-500 text-white"
-                : "bg-zinc-800 text-zinc-300"
-              : "bg-zinc-900 text-zinc-600 cursor-not-allowed"
+                : "bg-canvas-800 text-zinc-300"
+              : "bg-canvas-900 text-zinc-600 cursor-not-allowed"
           }`}
         >
           {!canReveal ? "Introduce el resultado" : success ? "Robar los puntos →" : "Cerrar — sin transferencia"}
@@ -474,7 +474,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
                 className={`w-full p-3 rounded-xl border text-left transition-all ${
                   selectedRivalId === rt.id
                     ? `${TEAM_ACCENT[rt.color]} border-transparent text-white`
-                    : "bg-zinc-800 border-zinc-700 text-zinc-300"
+                    : "bg-canvas-800 border-canvas-700 text-zinc-300"
                 }`}
               >
                 <span className="font-bold">{rt.name}</span>
@@ -484,7 +484,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
           </div>
         )}
 
-        <div className="bg-zinc-800 rounded-xl p-3 text-sm space-y-1">
+        <div className="bg-canvas-800 rounded-xl p-3 text-sm space-y-1">
           <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">Resultado del intercambio</p>
           <div className="flex items-center justify-between">
             <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
@@ -497,7 +497,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-sm">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-canvas-800 text-zinc-300 font-semibold text-sm">
             Cancelar
           </button>
           <button
@@ -527,7 +527,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
         <div className="p-5 text-center space-y-4">
           <div className="text-4xl">💨</div>
           <p className="text-lg font-black text-white">Sin transferencia</p>
-          <button onClick={onClose} className="w-full py-3 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-sm">Cerrar</button>
+          <button onClick={onClose} className="w-full py-3 rounded-xl bg-canvas-800 text-zinc-300 font-semibold text-sm">Cerrar</button>
         </div>
       );
     }
@@ -536,7 +536,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md bg-zinc-900 border border-zinc-700/60 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-md bg-canvas-900 border border-canvas-700/60 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         {renderContent()}
       </div>
     </div>

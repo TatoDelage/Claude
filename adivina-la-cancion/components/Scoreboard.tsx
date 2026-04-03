@@ -23,13 +23,13 @@ const COLOR_MAP: Record<
     minus: "bg-amber-900/80 hover:bg-amber-800/80",
     plus: "bg-amber-500 hover:bg-amber-400",
   },
-  teal: {
-    bg: "bg-teal-950/60",
-    border: "border-teal-700/50",
-    text: "text-teal-300",
-    ring: "ring-teal-500",
-    minus: "bg-teal-900/80 hover:bg-teal-800/80",
-    plus: "bg-teal-500 hover:bg-teal-400",
+  sky: {
+    bg: "bg-sky-950/60",
+    border: "border-sky-700/50",
+    text: "text-sky-300",
+    ring: "ring-sky-500",
+    minus: "bg-sky-900/80 hover:bg-sky-800/80",
+    plus: "bg-sky-500 hover:bg-sky-400",
   },
   rose: {
     bg: "bg-rose-950/60",
@@ -100,7 +100,7 @@ function TeamCard({
           className={`w-full py-2 rounded-xl text-xs font-bold transition-all ${
             availableWildcards > 0
               ? `${c.plus} text-white opacity-90 hover:opacity-100 active:scale-95`
-              : "bg-zinc-800 text-zinc-600 cursor-default"
+              : "bg-canvas-800 text-zinc-600 cursor-default"
           }`}
         >
           🃏 Comodín{availableWildcards > 0 ? ` (${availableWildcards})` : " — agotados"}

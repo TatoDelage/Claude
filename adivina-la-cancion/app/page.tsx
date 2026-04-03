@@ -17,21 +17,21 @@ const DEFAULT_TEAM_NAMES = [
 const TEAM_ACCENT = [
   "bg-violet-500",
   "bg-amber-500",
-  "bg-teal-500",
+  "bg-sky-500",
   "bg-rose-500",
 ];
 
 const TEAM_BORDER = [
   "border-violet-700/50",
   "border-amber-700/50",
-  "border-teal-700/50",
+  "border-sky-700/50",
   "border-rose-700/50",
 ];
 
 const TEAM_BG = [
   "bg-violet-950/40",
   "bg-amber-950/40",
-  "bg-teal-950/40",
+  "bg-sky-950/40",
   "bg-rose-950/40",
 ];
 
@@ -103,12 +103,12 @@ export default function SetupPage() {
   const draft = drafts[activeTeam];
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <main className="min-h-screen bg-canvas-950 text-white flex flex-col">
       {/* Title */}
       <div className="text-center pt-10 pb-5 px-4">
         <div className="text-4xl mb-2">🎵</div>
         <h1 className="text-3xl font-black tracking-tight">
-          Adivina la <span className="text-violet-400">Canción</span>
+          Adivina la <span className="text-emerald-400">Canción</span>
         </h1>
         <p className="text-zinc-500 text-sm mt-1">El juego musical en grupo</p>
       </div>
@@ -127,8 +127,8 @@ export default function SetupPage() {
                 onClick={() => handleTeamCount(n)}
                 className={`flex-1 py-4 rounded-2xl text-2xl font-black transition-all ${
                   teamCount === n
-                    ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30 scale-105"
-                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105"
+                    : "bg-canvas-800 text-zinc-400 hover:bg-canvas-700"
                 }`}
               >
                 {n}
@@ -146,7 +146,7 @@ export default function SetupPage() {
               className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTeam === i
                   ? `${TEAM_ACCENT[i]} text-white shadow-lg`
-                  : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:border-zinc-700"
+                  : "bg-canvas-900 text-zinc-500 border border-canvas-700 hover:border-zinc-700"
               }`}
             >
               {i + 1}
@@ -169,7 +169,7 @@ export default function SetupPage() {
               value={draft.name}
               onChange={(e) => update(activeTeam, { name: e.target.value })}
               maxLength={20}
-              className="w-full bg-zinc-900/80 border border-zinc-700/60 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 text-sm transition-colors"
+              className="w-full bg-canvas-900/80 border border-canvas-700/60 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 text-sm transition-colors"
             />
           </div>
 
@@ -182,7 +182,7 @@ export default function SetupPage() {
               <button
                 onClick={() => handlePlayerCount(activeTeam, -1)}
                 disabled={draft.playerCount <= 1}
-                className="w-10 h-10 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-white text-xl font-bold transition-all active:scale-95"
+                className="w-10 h-10 rounded-xl bg-canvas-800 hover:bg-canvas-700 disabled:opacity-30 text-white text-xl font-bold transition-all active:scale-95"
               >
                 −
               </button>
@@ -191,7 +191,7 @@ export default function SetupPage() {
               </span>
               <button
                 onClick={() => handlePlayerCount(activeTeam, +1)}
-                className="w-10 h-10 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xl font-bold transition-all active:scale-95"
+                className="w-10 h-10 rounded-xl bg-canvas-800 hover:bg-canvas-700 text-white text-xl font-bold transition-all active:scale-95"
               >
                 +
               </button>
@@ -217,7 +217,7 @@ export default function SetupPage() {
                     className={`w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-base transition-all active:scale-90 ${
                       draft.captainIndex === j
                         ? "bg-amber-500 text-white shadow-md shadow-amber-500/30"
-                        : "bg-zinc-800 text-zinc-600 hover:text-zinc-400"
+                        : "bg-canvas-800 text-zinc-600 hover:text-zinc-400"
                     }`}
                   >
                     👑
@@ -228,7 +228,7 @@ export default function SetupPage() {
                     value={name}
                     onChange={(e) => handlePlayerName(activeTeam, j, e.target.value)}
                     maxLength={20}
-                    className="flex-1 bg-zinc-900/80 border border-zinc-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 text-sm transition-colors"
+                    className="flex-1 bg-canvas-900/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 text-sm transition-colors"
                   />
                 </div>
               ))}
@@ -246,7 +246,7 @@ export default function SetupPage() {
         {/* ── 4. Botón de inicio ── */}
         <button
           onClick={handleStart}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-violet-500 hover:bg-violet-400 active:scale-95 transition-all shadow-lg shadow-violet-500/25"
+          className="w-full py-4 rounded-2xl font-black text-lg bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/25"
         >
           ¡Empezar la partida! 🎮
         </button>

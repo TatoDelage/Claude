@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
+import { GameState, RoundStatus } from "@/lib/types";
 import Scoreboard from "@/components/Scoreboard";
 import RoundTracker from "@/components/RoundTracker";
 import WildcardModal from "@/components/WildcardModal";
@@ -21,10 +22,15 @@ const ROUND_LABELS: Record<number, string> = {
   5: "Jugar Ronda 5 →",
 };
 
+const DEV_KEY = "adivina_dev";
+
 export default function GameContent() {
   const router = useRouter();
-  const { game, hydrated, resetGame } = useGame();
+  const { game, hydrated, resetGame, setGame } = useGame();
   const [wildcardTeamId, setWildcardTeamId] = useState<string | null>(null);
+  const [devMode, setDevMode] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(DEV_KEY) === "1"
+  );
 
   useEffect(() => {
     if (hydrated && !game) router.replace("/");
@@ -39,6 +45,25 @@ export default function GameContent() {
     }
   };
 
+  const toggleDevMode = () => {
+    const next = !devMode;
+    setDevMode(next);
+    localStorage.setItem(DEV_KEY, next ? "1" : "0");
+  };
+
+  // In dev mode: set the target round as active and navigate directly.
+  const jumpToRound = (roundNumber: number) => {
+    const roundStatus = (n: number): RoundStatus =>
+      n < roundNumber ? "completed" : n === roundNumber ? "active" : "pending";
+    const updated: GameState = {
+      ...game,
+      currentRound: roundNumber,
+      rounds: game.rounds.map((r) => ({ ...r, status: roundStatus(r.number) })),
+    };
+    setGame(updated);
+    router.push(ROUND_ROUTES[roundNumber]);
+  };
+
   const activeRound = game.rounds.find((r) => r.status === "active");
   const activeRoute = activeRound ? ROUND_ROUTES[activeRound.number] : null;
 
@@ -46,20 +71,37 @@ export default function GameContent() {
     <main className="min-h-screen bg-canvas-950 text-white">
       {/* Top bar */}
       <header className="sticky top-0 z-10 bg-canvas-950/90 backdrop-blur border-b border-canvas-700/60 px-4 py-3 flex items-center justify-between">
-        <div>
+        <div className="flex items-center gap-2">
           <span className="text-sm font-black text-white">🎵 Adivina la Canción</span>
           {activeRound && (
-            <span className="ml-3 text-xs text-zinc-500">
+            <span className="ml-1 text-xs text-zinc-500">
               Ronda {activeRound.number} — {activeRound.name}
             </span>
           )}
+          {devMode && (
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 tracking-wide">
+              DEV
+            </span>
+          )}
         </div>
-        <button
-          onClick={handleReset}
-          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-        >
-          Terminar
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleDevMode}
+            className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${
+              devMode
+                ? "text-amber-400 hover:text-amber-300"
+                : "text-zinc-700 hover:text-zinc-500"
+            }`}
+          >
+            {devMode ? "⚙ dev on" : "⚙ dev"}
+          </button>
+          <button
+            onClick={handleReset}
+            className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+          >
+            Terminar
+          </button>
+        </div>
       </header>
 
       {/* Content */}
@@ -87,7 +129,36 @@ export default function GameContent() {
           </div>
         )}
 
-        {/* Scoreboard — includes "Usar comodín" button per team */}
+        {/* Dev mode jump panel */}
+        {devMode && (
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3 space-y-2">
+            <p className="text-xs font-bold text-amber-400/70 uppercase tracking-widest">
+              Saltar a ronda (dev)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(ROUND_ROUTES).map(([num, route]) => {
+                const n = Number(num);
+                const round = game.rounds.find((r) => r.number === n);
+                const isCurrent = game.currentRound === n;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => jumpToRound(n)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                      isCurrent
+                        ? "bg-amber-500/30 text-amber-300 border border-amber-500/40"
+                        : "bg-canvas-800 text-zinc-400 hover:bg-canvas-700 hover:text-zinc-200"
+                    }`}
+                  >
+                    R{n} — {round?.name ?? route}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Scoreboard */}
         <Scoreboard
           teams={game.teams}
           onWildcard={(teamId) => setWildcardTeamId(teamId)}

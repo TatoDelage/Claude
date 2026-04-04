@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
-import { Round2Setup, TurnResult, ROUND2_KEY, scoresByTeam } from "@/lib/round2";
+import { Round2Setup, TurnResult, ROUND2_KEY } from "@/lib/round2";
 import { GameState, RoundStatus } from "@/lib/types";
 import Setup from "@/components/round2/Setup";
 import Play from "@/components/round2/Play";
@@ -39,12 +39,11 @@ export default function Round2Content() {
   };
 
   const handleContinue = () => {
-    const deltas = results.length > 0 ? scoresByTeam(results) : {};
+    // Scores already committed per-turn in Play.tsx — just advance the round.
     const roundStatus = (n: number): RoundStatus =>
       n < 3 ? "completed" : n === 3 ? "active" : "pending";
     const combined: GameState = {
       ...game,
-      teams: game.teams.map((t) => ({ ...t, score: t.score + (deltas[t.id] ?? 0) })),
       currentRound: 3,
       rounds: game.rounds.map((r) => ({ ...r, status: roundStatus(r.number) })),
     };

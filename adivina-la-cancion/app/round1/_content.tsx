@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
-import { Round1Setup, TurnResult, ROUND1_KEY, scoresByTeam } from "@/lib/round1";
+import { Round1Setup, TurnResult, ROUND1_KEY } from "@/lib/round1";
 import { GameState, RoundStatus } from "@/lib/types";
 import Setup from "@/components/round1/Setup";
 import Play from "@/components/round1/Play";
@@ -39,15 +39,11 @@ export default function Round1Content() {
   };
 
   const handleContinue = () => {
-    // Combine score application + round advancement into one setGame call to
-    // avoid the stale-closure bug where the second persist() would overwrite
-    // the first one's localStorage write using the old game reference.
-    const deltas = results.length > 0 ? scoresByTeam(results) : {};
+    // Scores already committed per-turn in Play.tsx — just advance the round.
     const roundStatus = (n: number): RoundStatus =>
       n < 2 ? "completed" : n === 2 ? "active" : "pending";
     const combined: GameState = {
       ...game,
-      teams: game.teams.map((t) => ({ ...t, score: t.score + (deltas[t.id] ?? 0) })),
       currentRound: 2,
       rounds: game.rounds.map((r) => ({ ...r, status: roundStatus(r.number) })),
     };

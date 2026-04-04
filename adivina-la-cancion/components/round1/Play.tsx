@@ -13,6 +13,7 @@ import {
 import { useTimer } from "@/lib/useTimer";
 import WildcardModal, { WildcardEffect } from "@/components/WildcardModal";
 import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
+import { useGame } from "@/context/GameContext";
 
 // ─── Sub-components ───────────────────────────────────────────
 
@@ -110,6 +111,7 @@ export default function Play({
   teams: Team[];
   onComplete: (results: TurnResult[]) => void;
 }) {
+  const { adjustScore } = useGame();
   const [turnIndex, setTurnIndex] = useState(0);
   const [phase, setPhase] = useState<TurnPhase>("idle");
   const [results, setResults] = useState<TurnResult[]>([]);
@@ -169,6 +171,7 @@ export default function Play({
   };
 
   const judge = (correct: boolean) => {
+    if (correct) adjustScore(turn.teamId, POINTS_CORRECT);
     const result: TurnResult = { teamId: turn.teamId, song: currentSong, correct };
     const newResults = [...results, result];
     setResults(newResults);
@@ -270,39 +273,29 @@ export default function Play({
       </header>
 
       {/* Live score bar — always visible during play */}
-      {(() => {
-        // Accumulate in-round points from judged results so display is live
-        const inRound: Record<string, number> = {};
-        for (const r of results) {
-          inRound[r.teamId] = (inRound[r.teamId] ?? 0) + (r.correct ? POINTS_CORRECT : 0);
-        }
-        return (
-          <div className="flex gap-2 px-4 py-3 border-b border-canvas-700/60 justify-center flex-wrap">
-            {teams.map((team) => {
-              const tcc = TEAM_COLOR[team.color];
-              const isCurrent = team.id === currentTeam.id;
-              const displayScore = team.score + (inRound[team.id] ?? 0);
-              return (
-                <div
-                  key={team.id}
-                  className={`flex flex-col items-center px-5 py-2 rounded-2xl font-bold transition-all ${
-                    isCurrent
-                      ? `${tcc.badge} text-white shadow-lg`
-                      : "bg-canvas-800 text-zinc-300"
-                  }`}
-                >
-                  <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
-                    {team.name}
-                  </span>
-                  <span className="text-2xl font-black tabular-nums leading-none">
-                    {displayScore}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
+      <div className="flex gap-2 px-4 py-3 border-b border-canvas-700/60 justify-center flex-wrap">
+        {teams.map((team) => {
+          const tcc = TEAM_COLOR[team.color];
+          const isCurrent = team.id === currentTeam.id;
+          return (
+            <div
+              key={team.id}
+              className={`flex flex-col items-center px-5 py-2 rounded-2xl font-bold transition-all ${
+                isCurrent
+                  ? `${tcc.badge} text-white shadow-lg`
+                  : "bg-canvas-800 text-zinc-300"
+              }`}
+            >
+              <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
+                {team.name}
+              </span>
+              <span className="text-2xl font-black tabular-nums leading-none">
+                {team.score}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Active effect banner */}
       {activeEffect && (

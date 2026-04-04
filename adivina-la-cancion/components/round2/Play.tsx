@@ -15,6 +15,7 @@ import {
 import { useTimer } from "@/lib/useTimer";
 import WildcardModal, { WildcardEffect } from "@/components/WildcardModal";
 import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
+import { useGame } from "@/context/GameContext";
 
 // ─── Color maps ───────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export default function Play({
   teams: Team[];
   onComplete: (results: TurnResult[]) => void;
 }) {
+  const { game: gameCtx, setGame } = useGame();
   const [turnIndex, setTurnIndex] = useState(0);
   const [phase, setPhase] = useState<TurnPhase>("idle");
   const [results, setResults] = useState<TurnResult[]>([]);
@@ -176,8 +178,21 @@ export default function Play({
     setPhase("judging");
   };
 
-  // Finalize a turn: store result, advance or complete
+  // Finalize a turn: commit scores atomically, store result, advance or complete
   const finalizeTurn = (result: TurnResult) => {
+    if (gameCtx) {
+      const deltas: Record<string, number> = {};
+      const add = (id: string, d: number) => { deltas[id] = (deltas[id] ?? 0) + d; };
+      add(result.teamId, result.primaryCorrect ? POINTS_CORRECT : POINTS_FAIL);
+      for (const rb of result.rebounds) {
+        if (rb.choice === "correct") add(rb.teamId, POINTS_CORRECT);
+        else if (rb.choice === "wrong") add(rb.teamId, POINTS_FAIL);
+      }
+      setGame({
+        ...gameCtx,
+        teams: gameCtx.teams.map((t) => ({ ...t, score: t.score + (deltas[t.id] ?? 0) })),
+      });
+    }
     const newResults = [...results, result];
     setResults(newResults);
     setLastResult({ primaryCorrect: result.primaryCorrect, rebounds: result.rebounds });
@@ -295,17 +310,6 @@ export default function Play({
     closeWildcard();
   };
 
-  // ── Live score bar helpers
-
-  const inRound: Record<string, number> = {};
-  for (const r of results) {
-    inRound[r.teamId] = (inRound[r.teamId] ?? 0) + (r.primaryCorrect ? POINTS_CORRECT : POINTS_FAIL);
-    for (const rb of r.rebounds) {
-      if (rb.choice === "correct") inRound[rb.teamId] = (inRound[rb.teamId] ?? 0) + POINTS_CORRECT;
-      else if (rb.choice === "wrong") inRound[rb.teamId] = (inRound[rb.teamId] ?? 0) + POINTS_FAIL;
-    }
-  }
-
   // The team whose turn context determines wildcard context
   const activePlayTeamId =
     phase === "rebound_offer" || phase === "rebound_response" || phase === "rebound_judging"
@@ -345,7 +349,6 @@ export default function Play({
         {teams.map((team) => {
           const tcc = TEAM_COLOR[team.color];
           const isCurrent = team.id === currentTeam.id;
-          const displayScore = team.score + (inRound[team.id] ?? 0);
           return (
             <div
               key={team.id}
@@ -356,7 +359,7 @@ export default function Play({
               <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
                 {team.name}
               </span>
-              <span className="text-2xl font-black tabular-nums leading-none">{displayScore}</span>
+              <span className="text-2xl font-black tabular-nums leading-none">{team.score}</span>
             </div>
           );
         })}

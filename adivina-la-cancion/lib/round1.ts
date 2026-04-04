@@ -27,6 +27,7 @@ export interface Round1Setup {
   fragmentDuration: number;
   responseDuration: number;
   songsByTeam: Record<string, SongEntry[]>; // teamId → 5 songs
+  reserveSongByTeam: Record<string, SongEntry>; // teamId → 1 optional reserve song
   turnOrder: TurnDef[];
 }
 

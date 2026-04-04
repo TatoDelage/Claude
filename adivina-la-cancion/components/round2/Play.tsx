@@ -132,6 +132,7 @@ export default function Play({
   const [cantanteMode, setCantanteMode] = useState(false);
   const [blockedPlayer, setBlockedPlayer] = useState<{ name: string } | null>(null);
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
+  const [songOverride, setSongOverride] = useState<SongEntry | null>(null);
 
   // Rebound tracking
   const [reboundIdx, setReboundIdx] = useState(0);
@@ -142,7 +143,8 @@ export default function Play({
   // Turn info
   const turn = setup.turnOrder[turnIndex];
   const currentTeam = teams.find((t) => t.id === turn.teamId)!;
-  const currentSong = setup.songsByTeam[turn.teamId][turn.songIndex];
+  const baseSong = setup.songsByTeam[turn.teamId][turn.songIndex];
+  const currentSong = songOverride ?? baseSong;
   const total = totalTurns(setup);
   const tc = TEAM_COLOR[currentTeam.color];
   const rivalTeams = teams.filter((t) => t.id !== currentTeam.id);
@@ -199,6 +201,7 @@ export default function Play({
     setCantanteMode(false);
     setBlockedPlayer(null);
     setActiveEffect(null);
+    setSongOverride(null);
     setReboundIdx(0);
     setCurrentRebounds([]);
 
@@ -294,9 +297,16 @@ export default function Play({
       case "robo":
         setActiveEffect("🎭 Robo activo — cambia la canción al del rival");
         break;
-      case "otra":
-        setActiveEffect("🔄 Nueva canción — el presentador elige otra");
+      case "otra": {
+        const reserve = setup.reserveSongByTeam[turn.teamId];
+        if (reserve && (reserve.title.trim() || reserve.artist.trim())) {
+          setSongOverride(reserve);
+          setActiveEffect("🔄 Canción de reserva activada");
+        } else {
+          setActiveEffect("🔄 Sin canción de reserva — el presentador elige otra");
+        }
         break;
+      }
       case "supercomodin":
         if (effect.supercomodin) {
           setActiveEffect(`⭐ Supercomodín — ${effect.supercomodin.points} pts transferidos`);

@@ -81,6 +81,9 @@ export default function Setup({
   const [songsByTeam, setSongsByTeam] = useState<Record<string, SongEntry[]>>(
     () => Object.fromEntries(teams.map((t) => [t.id, emptySongs()]))
   );
+  const [reserveSongByTeam, setReserveSongByTeam] = useState<Record<string, SongEntry>>(
+    () => Object.fromEntries(teams.map((t) => [t.id, { title: "", artist: "" }]))
+  );
 
   const updateSong = (
     teamId: string,
@@ -96,6 +99,13 @@ export default function Setup({
     }));
   };
 
+  const updateReserveSong = (teamId: string, field: keyof SongEntry, value: string) => {
+    setReserveSongByTeam((prev) => ({
+      ...prev,
+      [teamId]: { ...prev[teamId], [field]: value },
+    }));
+  };
+
   const teamComplete = (teamId: string) =>
     songsByTeam[teamId].every((s) => s.title.trim() || s.artist.trim());
 
@@ -106,6 +116,7 @@ export default function Setup({
       fragmentDuration,
       responseDuration,
       songsByTeam,
+      reserveSongByTeam,
       turnOrder: buildTurnOrder(teams),
     };
     onStart(setup);
@@ -124,7 +135,7 @@ export default function Setup({
         </p>
         <h1 className="text-2xl font-black">Introduce las canciones</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          {SONGS_PER_TEAM} canciones por equipo · más difíciles
+          {SONGS_PER_TEAM} canciones por equipo + 1 de reserva · más difíciles
         </p>
       </header>
 
@@ -221,6 +232,31 @@ export default function Setup({
               />
             </div>
           ))}
+
+          {/* Reserve song separator */}
+          <div className="border-t border-canvas-700/40 pt-3 space-y-1.5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">🔄</span>
+              <div>
+                <p className="text-xs font-bold text-zinc-400">Canción de reserva</p>
+                <p className="text-xs text-zinc-600">Solo se usa si se activa el comodín «Otra canción» · Opcional</p>
+              </div>
+            </div>
+            <input
+              type="text"
+              placeholder="Título (opcional)"
+              value={reserveSongByTeam[currentTeam.id].title}
+              onChange={(e) => updateReserveSong(currentTeam.id, "title", e.target.value)}
+              className="w-full bg-canvas-900/80 border border-canvas-700/40 rounded-xl px-3 py-2.5 text-white placeholder-zinc-700 text-sm focus:outline-none focus:border-zinc-600 transition-colors"
+            />
+            <input
+              type="text"
+              placeholder="Artista (opcional)"
+              value={reserveSongByTeam[currentTeam.id].artist}
+              onChange={(e) => updateReserveSong(currentTeam.id, "artist", e.target.value)}
+              className="w-full bg-canvas-900/80 border border-canvas-700/40 rounded-xl px-3 py-2.5 text-white placeholder-zinc-700 text-sm focus:outline-none focus:border-zinc-600 transition-colors"
+            />
+          </div>
         </section>
 
         {/* Progress bar */}

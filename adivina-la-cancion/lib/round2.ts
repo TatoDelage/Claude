@@ -35,6 +35,7 @@ export interface Round2Setup {
   fragmentDuration: number;
   responseDuration: number;
   songsByTeam: Record<string, SongEntry[]>;
+  reserveSongByTeam: Record<string, SongEntry>; // teamId → 1 optional reserve song
   turnOrder: TurnDef[];
 }
 

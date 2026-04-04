@@ -1,4 +1,5 @@
-export const SONGS_TOTAL = 5;
+export const SONGS_TOTAL = 5;   // songs to input in setup form
+export const CORRECT_TO_WIN = 5; // correct answers needed to end the round
 export const ROUND3_KEY = "adivina_round3";
 export const DEFAULT_RESPONSE_DURATION = 15;
 export const POINTS_CORRECT = 20;
@@ -27,7 +28,6 @@ export interface TurnResult {
 export interface Round3Setup {
   responseDuration: number;
   songs: SongEntry[];
-  reserveSong: SongEntry;
 }
 
 export function emptySongs(): SongEntry[] {

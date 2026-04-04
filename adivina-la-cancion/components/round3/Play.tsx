@@ -7,7 +7,7 @@ import {
   TurnResult,
   ReboundResult,
   SongEntry,
-  SONGS_TOTAL,
+  CORRECT_TO_WIN,
   POINTS_CORRECT,
   POINTS_FAIL,
 } from "@/lib/round3";
@@ -128,6 +128,8 @@ export default function Play({
   const [phase, setPhase] = useState<TurnPhase>("idle");
   const [results, setResults] = useState<TurnResult[]>([]);
   const [lastResult, setLastResult] = useState<{ buzzerTeamId: string; primaryCorrect: boolean; rebounds: ReboundResult[] } | null>(null);
+  // Tracks correct answers per team — round ends when any team reaches CORRECT_TO_WIN
+  const [correctByTeam, setCorrectByTeam] = useState<Record<string, number>>({});
 
   // Buzzer state
   const [buzzerTeamId, setBuzzerTeamId] = useState<string | null>(null);
@@ -136,7 +138,6 @@ export default function Play({
   const [wildcardTeamId, setWildcardTeamId] = useState<string | null>(null);
   const [cantanteMode, setCantanteMode] = useState(false);
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
-  const [songOverride, setSongOverride] = useState<SongEntry | null>(null);
 
   // Rebound state
   const [reboundIdx, setReboundIdx] = useState(0);
@@ -144,8 +145,8 @@ export default function Play({
 
   const pausedPhaseRef = { current: null as TurnPhase | null };
 
-  // Derived values
-  const currentSong = songOverride ?? setup.songs[songIndex];
+  // Derived values — cycle through songs if we run past the end
+  const currentSong = setup.songs[songIndex % setup.songs.length];
   const buzzerTeam = buzzerTeamId ? teams.find((t) => t.id === buzzerTeamId) : null;
   const tc = buzzerTeam ? TEAM_COLOR[buzzerTeam.color] : null;
   const rivalTeams = buzzerTeam ? teams.filter((t) => t.id !== buzzerTeam.id) : [];
@@ -182,17 +183,30 @@ export default function Play({
       });
     }
 
+    // Count correct answers earned this turn
+    const newCorrectByTeam = { ...correctByTeam };
+    if (result.primaryCorrect) {
+      newCorrectByTeam[result.buzzerTeamId] = (newCorrectByTeam[result.buzzerTeamId] ?? 0) + 1;
+    }
+    for (const rb of result.rebounds) {
+      if (rb.choice === "correct") {
+        newCorrectByTeam[rb.teamId] = (newCorrectByTeam[rb.teamId] ?? 0) + 1;
+      }
+    }
+    setCorrectByTeam(newCorrectByTeam);
+
     const newResults = [...results, result];
     setResults(newResults);
     setLastResult({ buzzerTeamId: result.buzzerTeamId, primaryCorrect: result.primaryCorrect, rebounds: result.rebounds });
     setBuzzerTeamId(null);
     setCantanteMode(false);
     setActiveEffect(null);
-    setSongOverride(null);
     setReboundIdx(0);
     setCurrentRebounds([]);
 
-    if (songIndex + 1 >= SONGS_TOTAL) {
+    // Round ends when any team reaches CORRECT_TO_WIN correct answers
+    const roundOver = Object.values(newCorrectByTeam).some((c) => c >= CORRECT_TO_WIN);
+    if (roundOver) {
       onComplete(newResults);
     } else {
       setSongIndex((i) => i + 1);
@@ -275,19 +289,6 @@ export default function Play({
       case "silencio":
         if (effect.silencio) setActiveEffect(`🔇 ${effect.silencio.playerName} bloqueado/a`);
         break;
-      case "robo":
-        setActiveEffect("🎭 Robo activo — cambia la canción al del rival");
-        break;
-      case "otra": {
-        const reserve = setup.reserveSong;
-        if (reserve && (reserve.title.trim() || reserve.artist.trim())) {
-          setSongOverride(reserve);
-          setActiveEffect("🔄 Canción de reserva activada");
-        } else {
-          setActiveEffect("🔄 Sin canción de reserva — el presentador elige otra");
-        }
-        break;
-      }
       case "supercomodin":
         if (effect.supercomodin) setActiveEffect(`⭐ Supercomodín — ${effect.supercomodin.points} pts transferidos`);
         break;
@@ -317,20 +318,26 @@ export default function Play({
             Ronda 3 · Pulsadores
           </p>
           <p className="text-sm text-zinc-400 mt-0.5">
-            Canción <span className="font-bold text-white">{songIndex + 1}/{SONGS_TOTAL}</span>
+            Canción <span className="font-bold text-white">{songIndex + 1}</span>
           </p>
         </div>
-        <div className="flex gap-1">
-          {setup.songs.map((_, i) => (
-            <span
-              key={i}
-              className={`w-2 h-2 rounded-full ${
-                i < songIndex
-                  ? results[i]?.primaryCorrect ? "bg-green-500" : "bg-red-800"
-                  : i === songIndex ? "bg-white" : "bg-canvas-800"
-              }`}
-            />
-          ))}
+        {/* Race-to-N progress — one counter per team */}
+        <div className="flex gap-3">
+          {teams.map((team) => {
+            const correct = correctByTeam[team.id] ?? 0;
+            const tcc = TEAM_COLOR[team.color];
+            return (
+              <div key={team.id} className="text-center">
+                <p className={`text-[10px] font-bold uppercase tracking-wide ${tcc.text}`}>
+                  {team.name.split(" ")[0]}
+                </p>
+                <p className="text-sm font-black tabular-nums leading-none">
+                  <span className="text-white">{correct}</span>
+                  <span className="text-zinc-600">/{CORRECT_TO_WIN}</span>
+                </p>
+              </div>
+            );
+          })}
         </div>
       </header>
 

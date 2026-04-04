@@ -75,7 +75,6 @@ export default function Setup({
 }) {
   const [responseDuration, setResponseDuration] = useState(DEFAULT_RESPONSE_DURATION);
   const [songs, setSongs] = useState<SongEntry[]>(emptySongs);
-  const [reserveSong, setReserveSong] = useState<SongEntry>({ title: "", artist: "" });
 
   const updateSong = (index: number, field: keyof SongEntry, value: string) => {
     setSongs((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
@@ -84,7 +83,7 @@ export default function Setup({
   const allComplete = songs.every((s) => s.title.trim() || s.artist.trim());
 
   const handleStart = () => {
-    onStart({ responseDuration, songs, reserveSong });
+    onStart({ responseDuration, songs });
   };
 
   return (
@@ -95,7 +94,7 @@ export default function Setup({
         </p>
         <h1 className="text-2xl font-black">Introduce las canciones</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          {SONGS_TOTAL} canciones compartidas + 1 de reserva
+          {SONGS_TOTAL} canciones compartidas · la ronda acaba al llegar a 5 aciertos
         </p>
       </header>
 
@@ -172,33 +171,6 @@ export default function Setup({
               />
             </div>
           ))}
-
-          {/* Reserve song */}
-          <div className="border-t border-canvas-700/40 pt-3 space-y-1.5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-base">🔄</span>
-              <div>
-                <p className="text-xs font-bold text-zinc-400">Canción de reserva</p>
-                <p className="text-xs text-zinc-600">
-                  Solo se usa si se activa el comodín «Otra canción» · Opcional
-                </p>
-              </div>
-            </div>
-            <input
-              type="text"
-              placeholder="Título (opcional)"
-              value={reserveSong.title}
-              onChange={(e) => setReserveSong({ ...reserveSong, title: e.target.value })}
-              className="w-full bg-canvas-800/80 border border-canvas-700/40 rounded-xl px-3 py-2.5 text-white placeholder-zinc-700 text-sm focus:outline-none focus:border-zinc-600 transition-colors"
-            />
-            <input
-              type="text"
-              placeholder="Artista (opcional)"
-              value={reserveSong.artist}
-              onChange={(e) => setReserveSong({ ...reserveSong, artist: e.target.value })}
-              className="w-full bg-canvas-800/80 border border-canvas-700/40 rounded-xl px-3 py-2.5 text-white placeholder-zinc-700 text-sm focus:outline-none focus:border-zinc-600 transition-colors"
-            />
-          </div>
         </section>
 
         <button

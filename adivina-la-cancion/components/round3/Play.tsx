@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Team } from "@/lib/types";
 import {
   Round3Setup,
@@ -15,6 +15,11 @@ import { useTimer } from "@/lib/useTimer";
 import WildcardModal, { WildcardEffect } from "@/components/WildcardModal";
 import { WildcardContext, availableCount } from "@/lib/wildcardUtils";
 import { useGame } from "@/context/GameContext";
+
+// ─── Round 3 disabled wildcards ──────────────────────────────
+// "robo" and "otra" don't make sense in buzzer round (no per-team songs).
+
+const DISABLED_WILDCARDS = ["robo", "otra"];
 
 // ─── Color maps ───────────────────────────────────────────────
 
@@ -440,7 +445,7 @@ export default function Play({
               <div className="flex gap-1.5">
                 {teams.map((team) => {
                   const ctx = wildcardCtxFor(team.id);
-                  const count = availableCount(team.wildcards, ctx);
+                  const count = availableCount(team.wildcards, ctx, DISABLED_WILDCARDS);
                   const tcc2 = TEAM_COLOR[team.color];
                   return (
                     <button
@@ -593,6 +598,7 @@ export default function Play({
             team={wildcardTeam}
             allTeams={teams}
             context={ctx}
+            disabledIds={DISABLED_WILDCARDS}
             onClose={closeWildcard}
             onUsed={handleWildcardUsed}
           />

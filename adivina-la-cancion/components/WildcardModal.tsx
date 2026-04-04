@@ -24,6 +24,8 @@ interface Props {
   allTeams: Team[];
   /** When used in-game: "my_turn" (defensa available) or "rival_turn" (ataque available). Default "free" (all available). */
   context?: WildcardContext;
+  /** Wildcard IDs that are disabled for this round regardless of context (e.g. "robo", "otra" in Round 3). */
+  disabledIds?: string[];
   onClose: () => void;
   onUsed: (effect: WildcardEffect) => void;
 }
@@ -61,7 +63,7 @@ type Step =
 
 // ─── Main component ───────────────────────────────────────────
 
-export default function WildcardModal({ team, allTeams, context = "free", onClose, onUsed }: Props) {
+export default function WildcardModal({ team, allTeams, context = "free", disabledIds, onClose, onUsed }: Props) {
   const { game, useWildcard, applyScores, setGame } = useGame();
   const [step, setStep] = useState<Step>({ id: "grid" });
   const [selectedRivalId, setSelectedRivalId] = useState<string>(() => allTeams.find((t) => t.id !== team.id)?.id ?? "");
@@ -76,7 +78,7 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
 
   // ── Select from grid
   const selectWildcard = (wc: Wildcard) => {
-    if (wc.used || !isAvailable(wc, context)) return;
+    if (wc.used || !isAvailable(wc, context, disabledIds)) return;
     if (wc.id === "silencio") return setStep({ id: "silencio_pick", wc });
     if (wc.id === "supercomodin") return setStep({ id: "super1", wc });
     setStep({ id: "detail", wc });
@@ -96,8 +98,8 @@ export default function WildcardModal({ team, allTeams, context = "free", onClos
 
       <div className="grid grid-cols-2 gap-2">
         {team.wildcards.map((wc) => {
-          const blocked = !wc.used && !isAvailable(wc, context);
-          const reason = blockedReason(wc, context);
+          const blocked = !wc.used && !isAvailable(wc, context, disabledIds);
+          const reason = blockedReason(wc, context, disabledIds);
           const unavailable = wc.used || blocked;
           return (
             <button

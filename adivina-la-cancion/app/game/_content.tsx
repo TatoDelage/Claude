@@ -10,6 +10,7 @@ import WildcardModal from "@/components/WildcardModal";
 const ROUND_ROUTES: Record<number, string> = {
   1: "/round1",
   2: "/round2",
+  3: "/round3",
 };
 
 const ROUND_LABELS: Record<number, string> = {

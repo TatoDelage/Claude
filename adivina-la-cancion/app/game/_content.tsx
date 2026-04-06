@@ -13,6 +13,7 @@ const ROUND_ROUTES: Record<number, string> = {
   2: "/round2",
   3: "/round3",
   4: "/round4",
+  5: "/round5",
 };
 
 const ROUND_LABELS: Record<number, string> = {

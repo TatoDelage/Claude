@@ -13,8 +13,8 @@ export interface WildcardEffect {
   tiempo?: { extraSeconds: number };
   /** Silencio: which rival player is blocked */
   silencio?: { playerId: string; playerName: string };
-  /** Supercomodín: points transferred (null = prediction failed) */
-  supercomodin?: { rivalTeamId: string; points: number } | null;
+  /** Supercomodín: points swapped (null = no swap), gameOver = Supercomodín team wins immediately */
+  supercomodin?: { rivalTeamId: string; points: number; gameOver?: boolean } | null;
 }
 
 interface Props {
@@ -22,9 +22,9 @@ interface Props {
   team: Team;
   /** All teams (needed for Silencio and Supercomodín) */
   allTeams: Team[];
-  /** When used in-game: "my_turn" (defensa available) or "rival_turn" (ataque available). Default "free" (all available). */
+  /** "my_turn" (defensa available) or "rival_turn" (ataque available). Default "free". */
   context?: WildcardContext;
-  /** Wildcard IDs that are disabled for this round regardless of context (e.g. "robo", "otra" in Round 3). */
+  /** Wildcard IDs disabled for this round (e.g. "robo", "otra" in Round 3). */
   disabledIds?: string[];
   onClose: () => void;
   onUsed: (effect: WildcardEffect) => void;
@@ -54,21 +54,54 @@ type Step =
   | { id: "grid" }
   | { id: "detail"; wc: Wildcard }
   | { id: "silencio_pick"; wc: Wildcard }
-  | { id: "super1"; wc: Wildcard }
-  | { id: "super2"; wc: Wildcard; inputs: [string, string, string] }
-  | { id: "super3"; wc: Wildcard; songs: [string, string, string]; chosenIdx: number | null; prediction: number }
-  | { id: "super4"; wc: Wildcard; chosenSong: string; prediction: number; actual: number | null }
-  | { id: "super_win"; wc: Wildcard; rivalTeamId: string }
+  | { id: "super1"; wc: Wildcard; winnerTeamId: string }
+  | { id: "super_pick_player"; wc: Wildcard; winnerTeamId: string; pickedPlayerId: string | null; customName: string }
+  | { id: "super_songs"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; inputs: [string, string, string] }
+  | { id: "super_predict"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; songs: [string, string, string]; chosenIdx: number | null; prediction: number }
+  | { id: "super_hum"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; chosenSong: string; prediction: number; actual: number | null }
+  | { id: "super_swap_confirm"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; chosenSong: string; scoreA: number; scoreB: number }
+  | { id: "super_verify_offer"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; chosenSong: string; scoreA: number; scoreB: number }
+  | { id: "super_verify_judge"; wc: Wildcard; winnerTeamId: string; pickedPlayerName: string; chosenSong: string; scoreA: number; scoreB: number }
   | { id: "super_fail" };
 
 // ─── Main component ───────────────────────────────────────────
 
 export default function WildcardModal({ team, allTeams, context = "free", disabledIds, onClose, onUsed }: Props) {
-  const { game, useWildcard, applyScores, setGame } = useGame();
+  const { game, useWildcard, setGame } = useGame();
   const [step, setStep] = useState<Step>({ id: "grid" });
-  const [selectedRivalId, setSelectedRivalId] = useState<string>(() => allTeams.find((t) => t.id !== team.id)?.id ?? "");
 
   const rivalTeams = allTeams.filter((t) => t.id !== team.id);
+
+  // ── Live score helpers
+  const liveTeamScore = game?.teams.find((t) => t.id === team.id)?.score ?? team.score;
+  const winnerTeamLive = game
+    ? [...game.teams.filter((t) => t.id !== team.id)].sort((a, b) => b.score - a.score)[0] ?? null
+    : [...rivalTeams].sort((a, b) => b.score - a.score)[0] ?? null;
+  const supercomodinEligible = !!winnerTeamLive && liveTeamScore < winnerTeamLive.score;
+
+  // ── Score mutation helpers (atomic setGame to avoid stale closure)
+  const doSwap = (wc: Wildcard, winnerTeamId: string, scoreA: number, scoreB: number) => {
+    if (!game) return;
+    setGame({
+      ...game,
+      teams: game.teams.map((t) => {
+        if (t.id === team.id) return { ...t, score: scoreB, wildcards: t.wildcards.map((w) => w.id === wc.id ? { ...w, used: true } : w) };
+        if (t.id === winnerTeamId) return { ...t, score: scoreA };
+        return t;
+      }),
+    });
+  };
+
+  const doPenalty = (wc: Wildcard) => {
+    if (!game) return;
+    setGame({
+      ...game,
+      teams: game.teams.map((t) => {
+        if (t.id === team.id) return { ...t, score: 0, wildcards: t.wildcards.map((w) => w.id === wc.id ? { ...w, used: true } : w) };
+        return t;
+      }),
+    });
+  };
 
   // ── Confirm a simple wildcard (no sub-flow needed)
   const confirmSimple = (wc: Wildcard, extra?: Omit<WildcardEffect, "wildcardId">) => {
@@ -79,8 +112,11 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
   // ── Select from grid
   const selectWildcard = (wc: Wildcard) => {
     if (wc.used || !isAvailable(wc, context, disabledIds)) return;
+    if (wc.id === "supercomodin") {
+      if (!supercomodinEligible || !winnerTeamLive) return;
+      return setStep({ id: "super1", wc, winnerTeamId: winnerTeamLive.id });
+    }
     if (wc.id === "silencio") return setStep({ id: "silencio_pick", wc });
-    if (wc.id === "supercomodin") return setStep({ id: "super1", wc });
     setStep({ id: "detail", wc });
   };
 
@@ -98,8 +134,9 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
 
       <div className="grid grid-cols-2 gap-2">
         {team.wildcards.map((wc) => {
-          const blocked = !wc.used && !isAvailable(wc, context, disabledIds);
-          const reason = blockedReason(wc, context, disabledIds);
+          const isSuperBlocked = wc.id === "supercomodin" && !wc.used && !disabledIds?.includes(wc.id) && !supercomodinEligible;
+          const blocked = !wc.used && (!isAvailable(wc, context, disabledIds) || isSuperBlocked);
+          const reason = isSuperBlocked ? "Solo si vas\nperdiendo" : blockedReason(wc, context, disabledIds);
           const unavailable = wc.used || blocked;
           return (
             <button
@@ -120,7 +157,7 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
                 </span>
               )}
               {blocked && reason && (
-                <span className="absolute top-2 right-2 text-xs bg-canvas-800 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium leading-tight text-right">
+                <span className="absolute top-2 right-2 text-xs bg-canvas-800 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium leading-tight text-right whitespace-pre-line">
                   {reason}
                 </span>
               )}
@@ -214,37 +251,126 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
 
   // ── Supercomodín flow ──────────────────────────────────────
 
-  const renderSuper1 = (wc: Wildcard) => (
-    <div className="p-5 space-y-5 text-center">
-      <button onClick={() => setStep({ id: "grid" })} className="text-zinc-500 text-sm flex items-center gap-1 mx-auto">
-        ← Volver
-      </button>
-      <div className="text-5xl">⭐</div>
-      <div>
-        <p className="text-xl font-black text-white">Supercomodín</p>
-        <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
-          Un jugador de <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span> va
-          a tararear una canción. El presentador le ofrece 3 opciones para elegir.
-        </p>
+  const renderSuper1 = (s: Extract<Step, { id: "super1" }>) => {
+    const winner = allTeams.find((t) => t.id === s.winnerTeamId);
+    return (
+      <div className="p-5 space-y-5 text-center">
+        <button onClick={() => setStep({ id: "grid" })} className="text-zinc-500 text-sm flex items-center gap-1 mx-auto">
+          ← Volver
+        </button>
+        <div className="text-5xl">⭐</div>
+        <div className="space-y-2">
+          <p className="text-xl font-black text-white">Supercomodín</p>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            El equipo{" "}
+            <span className={`font-bold ${winner ? TEAM_TEXT[winner.color] : "text-white"}`}>
+              {winner?.name ?? "ganador"}
+            </span>{" "}
+            elegirá qué jugador de{" "}
+            <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>{" "}
+            va a tararear una canción.
+          </p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Si el jugador acierta la predicción, los puntos se intercambian entre equipos.
+          </p>
+        </div>
+        <button
+          onClick={() => setStep({ id: "super_pick_player", wc: s.wc, winnerTeamId: s.winnerTeamId, pickedPlayerId: null, customName: "" })}
+          className={`w-full py-3 rounded-xl text-white font-black ${TEAM_ACCENT[team.color]}`}
+        >
+          Que {winner?.name ?? "el ganador"} elija el jugador →
+        </button>
       </div>
-      <button
-        onClick={() => setStep({ id: "super2", wc, inputs: ["", "", ""] })}
-        className={`w-full py-3 rounded-xl text-white font-black ${TEAM_ACCENT[team.color]}`}
-      >
-        Introducir las 3 opciones →
-      </button>
-    </div>
-  );
+    );
+  };
 
-  const renderSuper2 = (step: Extract<Step, { id: "super2" }>) => {
-    const allFilled = step.inputs.every((s) => s.trim());
+  const renderSuperPickPlayer = (s: Extract<Step, { id: "super_pick_player" }>) => {
+    const winner = allTeams.find((t) => t.id === s.winnerTeamId);
+    const players = team.players;
+    const selectedPlayer = players.find((p) => p.id === s.pickedPlayerId);
+    const effectiveName = selectedPlayer?.name ?? s.customName.trim();
+    const canAdvance = effectiveName.length > 0;
+
     return (
       <div className="p-5 space-y-4">
-        <button onClick={() => setStep({ id: "super1", wc: step.wc })} className="text-zinc-500 text-sm flex items-center gap-1">
+        <button onClick={() => setStep({ id: "super1", wc: s.wc, winnerTeamId: s.winnerTeamId })} className="text-zinc-500 text-sm flex items-center gap-1">
           ← Volver
         </button>
         <div className="text-center">
-          <p className="text-lg font-black text-white">Las 3 opciones</p>
+          <p className="text-lg font-black text-white">¿Quién tararea?</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            El equipo{" "}
+            <span className={winner ? TEAM_TEXT[winner.color] : "text-zinc-300"}>{winner?.name ?? "ganador"}</span>{" "}
+            elige un jugador de{" "}
+            <span className={TEAM_TEXT[team.color]}>{team.name}</span>
+          </p>
+        </div>
+
+        {players.length > 0 ? (
+          <div className="space-y-2 max-h-52 overflow-y-auto">
+            {players.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setStep({ ...s, pickedPlayerId: p.id, customName: "" })}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all active:scale-95 ${
+                  s.pickedPlayerId === p.id
+                    ? `${TEAM_ACCENT[team.color]} border-transparent text-white`
+                    : "bg-canvas-800 border-canvas-700 text-zinc-300 hover:border-zinc-600"
+                }`}
+              >
+                {p.isCaptain && <span className="text-amber-400 text-sm">👑</span>}
+                <span className="text-sm font-bold">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-zinc-500 text-center">No hay jugadores registrados — escribe el nombre</p>
+            <input
+              type="text"
+              placeholder="Nombre del jugador"
+              value={s.customName}
+              onChange={(e) => setStep({ ...s, pickedPlayerId: null, customName: e.target.value })}
+              className="w-full bg-canvas-800 border border-canvas-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500"
+            />
+          </div>
+        )}
+
+        <button
+          disabled={!canAdvance}
+          onClick={() =>
+            setStep({
+              id: "super_songs",
+              wc: s.wc,
+              winnerTeamId: s.winnerTeamId,
+              pickedPlayerName: effectiveName,
+              inputs: ["", "", ""],
+            })
+          }
+          className={`w-full py-3 rounded-xl font-black text-sm transition-all ${
+            canAdvance
+              ? `${TEAM_ACCENT[team.color]} text-white`
+              : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
+          }`}
+        >
+          Este jugador →
+        </button>
+      </div>
+    );
+  };
+
+  const renderSuperSongs = (s: Extract<Step, { id: "super_songs" }>) => {
+    const allFilled = s.inputs.every((v) => v.trim());
+    return (
+      <div className="p-5 space-y-4">
+        <button
+          onClick={() => setStep({ id: "super_pick_player", wc: s.wc, winnerTeamId: s.winnerTeamId, pickedPlayerId: null, customName: s.pickedPlayerName })}
+          className="text-zinc-500 text-sm flex items-center gap-1"
+        >
+          ← Volver
+        </button>
+        <div className="text-center">
+          <p className="text-lg font-black text-white">3 opciones para {s.pickedPlayerName}</p>
           <p className="text-xs text-zinc-500 mt-1">Léelas en voz alta al jugador</p>
         </div>
         <div className="space-y-2">
@@ -254,11 +380,11 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
               <input
                 type="text"
                 placeholder={`Canción ${letter}`}
-                value={step.inputs[i]}
+                value={s.inputs[i]}
                 onChange={(e) => {
-                  const next = [...step.inputs] as [string, string, string];
+                  const next = [...s.inputs] as [string, string, string];
                   next[i] = e.target.value;
-                  setStep({ ...step, inputs: next });
+                  setStep({ ...s, inputs: next });
                 }}
                 className="flex-1 bg-canvas-800 border border-canvas-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500"
               />
@@ -268,7 +394,15 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
         <button
           disabled={!allFilled}
           onClick={() =>
-            setStep({ id: "super3", wc: step.wc, songs: step.inputs, chosenIdx: null, prediction: 0 })
+            setStep({
+              id: "super_predict",
+              wc: s.wc,
+              winnerTeamId: s.winnerTeamId,
+              pickedPlayerName: s.pickedPlayerName,
+              songs: s.inputs,
+              chosenIdx: null,
+              prediction: 0,
+            })
           }
           className={`w-full py-3 rounded-xl font-black text-sm transition-all ${
             allFilled
@@ -276,73 +410,69 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
               : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
           }`}
         >
-          El jugador elige y predice →
+          {s.pickedPlayerName} elige →
         </button>
       </div>
     );
   };
 
-  const renderSuper3 = (step: Extract<Step, { id: "super3" }>) => (
+  const renderSuperPredict = (s: Extract<Step, { id: "super_predict" }>) => (
     <div className="p-5 space-y-4">
-      <button onClick={() => setStep({ id: "super2", wc: step.wc, inputs: step.songs })} className="text-zinc-500 text-sm flex items-center gap-1">
+      <button onClick={() => setStep({ id: "super_songs", wc: s.wc, winnerTeamId: s.winnerTeamId, pickedPlayerName: s.pickedPlayerName, inputs: s.songs })} className="text-zinc-500 text-sm flex items-center gap-1">
         ← Volver
       </button>
       <div className="text-center">
-        <p className="text-lg font-black text-white">Elige y predice</p>
-        <p className="text-xs text-zinc-500 mt-1">¿Cuál tararea? ¿Cuántos oyentes acertarán?</p>
+        <p className="text-lg font-black text-white">{s.pickedPlayerName} elige y predice</p>
+        <p className="text-xs text-zinc-500 mt-1">¿Qué canción tararea? ¿Cuántos oyentes la reconocerán?</p>
       </div>
 
-      {/* Song selection */}
       <div className="space-y-2">
         {(["A", "B", "C"] as const).map((letter, i) => (
           <button
             key={i}
-            onClick={() => setStep({ ...step, chosenIdx: i })}
-            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-              step.chosenIdx === i
+            onClick={() => setStep({ ...s, chosenIdx: i })}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all active:scale-95 ${
+              s.chosenIdx === i
                 ? `${TEAM_ACCENT[team.color]} border-transparent text-white`
                 : "bg-canvas-800 border-canvas-700 text-zinc-300 hover:border-zinc-600"
             }`}
           >
             <span className="font-black text-sm w-5">{letter}</span>
-            <span className="text-sm">{step.songs[i]}</span>
+            <span className="text-sm">{s.songs[i]}</span>
           </button>
         ))}
       </div>
 
-      {/* Prediction stepper */}
       <div className="bg-canvas-800 rounded-xl p-3">
         <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest">Predicción: nº de oyentes que acertarán</p>
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setStep({ ...step, prediction: Math.max(0, step.prediction - 1) })}
+            onClick={() => setStep({ ...s, prediction: Math.max(0, s.prediction - 1) })}
             className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
-          >
-            −
-          </button>
-          <span className="text-3xl font-black tabular-nums">{step.prediction}</span>
+          >−</button>
+          <span className="text-3xl font-black tabular-nums">{s.prediction}</span>
           <button
-            onClick={() => setStep({ ...step, prediction: step.prediction + 1 })}
+            onClick={() => setStep({ ...s, prediction: s.prediction + 1 })}
             className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
-          >
-            +
-          </button>
+          >+</button>
         </div>
       </div>
 
       <button
-        disabled={step.chosenIdx === null}
+        disabled={s.chosenIdx === null}
         onClick={() =>
           setStep({
-            id: "super4",
-            wc: step.wc,
-            chosenSong: step.songs[step.chosenIdx!],
-            prediction: step.prediction,
+            id: "super_hum",
+            wc: s.wc,
+            winnerTeamId: s.winnerTeamId,
+            pickedPlayerName: s.pickedPlayerName,
+            chosenSong: s.songs[s.chosenIdx!],
+            prediction: s.prediction,
             actual: null,
           })
         }
         className={`w-full py-3 rounded-xl font-black text-sm ${
-          step.chosenIdx !== null
+          s.chosenIdx !== null
             ? `${TEAM_ACCENT[team.color]} text-white`
             : "bg-canvas-800 text-zinc-600 cursor-not-allowed"
         }`}
@@ -352,158 +482,109 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
     </div>
   );
 
-  const renderSuper4 = (step: Extract<Step, { id: "super4" }>) => {
-    const canReveal = step.actual !== null;
-    const success = canReveal && step.actual === step.prediction;
+  const renderSuperHum = (s: Extract<Step, { id: "super_hum" }>) => {
+    const canReveal = s.actual !== null;
+    const success = canReveal && s.actual === s.prediction;
     return (
       <div className="p-5 space-y-4">
-        <div className="text-center space-y-1">
-          <p className="text-lg font-black text-white">Revelar resultado</p>
-          <p className="text-sm text-zinc-400">
-            Canción elegida: <span className="text-white font-bold">{step.chosenSong}</span>
-          </p>
-          <p className="text-sm text-zinc-400">
-            Predicción: <span className="text-white font-bold">{step.prediction}</span>
-          </p>
+        <div className="bg-canvas-800/60 rounded-xl p-3 space-y-1 text-sm text-center">
+          <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1">{s.pickedPlayerName} tararea</p>
+          <p className="text-white font-bold">{s.chosenSong}</p>
+          <p className="text-zinc-500 text-xs">Predicción: <span className="text-white font-bold">{s.prediction}</span> oyentes</p>
         </div>
 
         <div className="bg-canvas-800 rounded-xl p-3">
           <p className="text-xs text-zinc-500 mb-2 uppercase tracking-widest">¿Cuántos acertaron?</p>
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setStep({ ...step, actual: Math.max(0, (step.actual ?? 0) - 1) })}
+              onClick={() => setStep({ ...s, actual: Math.max(0, (s.actual ?? 0) - 1) })}
               className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
-            >
-              −
-            </button>
-            <span className="text-3xl font-black tabular-nums">
-              {step.actual ?? "—"}
-            </span>
+            >−</button>
+            <span className="text-3xl font-black tabular-nums">{s.actual ?? "—"}</span>
             <button
-              onClick={() => setStep({ ...step, actual: (step.actual ?? 0) + 1 })}
+              onClick={() => setStep({ ...s, actual: (s.actual ?? 0) + 1 })}
               className="w-10 h-10 rounded-xl bg-canvas-700 hover:bg-zinc-600 text-white text-xl font-bold"
-            >
-              +
-            </button>
+            >+</button>
           </div>
         </div>
 
         {canReveal && (
-          <div
-            className={`p-3 rounded-xl text-center font-bold text-sm ${
-              success
-                ? "bg-green-500/15 text-green-400 border border-green-500/30"
-                : "bg-canvas-800 text-zinc-400 border border-canvas-700"
-            }`}
-          >
-            {success ? "✓ ¡Predicción acertada!" : "✗ Predicción incorrecta"}
+          <div className={`p-3 rounded-xl text-center font-bold text-sm ${
+            success
+              ? "bg-green-500/15 text-green-400 border border-green-500/30"
+              : "bg-canvas-800 text-zinc-400 border border-canvas-700"
+          }`}>
+            {success ? "✓ ¡Predicción acertada! Los puntos se intercambian." : "✗ Predicción incorrecta — sin intercambio"}
           </div>
         )}
 
         <button
           disabled={!canReveal}
           onClick={() => {
-            if (success && rivalTeams.length > 0) {
-              const rivalId = rivalTeams[0].id;
-              setSelectedRivalId(rivalId);
-              setStep({ id: "super_win", wc: step.wc, rivalTeamId: rivalId });
-            } else if (canReveal) {
-              useWildcard(team.id, step.wc.id);
-              onUsed({ wildcardId: step.wc.id, supercomodin: null });
+            if (!canReveal) return;
+            if (success) {
+              const scoreA = game?.teams.find((t) => t.id === team.id)?.score ?? 0;
+              const scoreB = game?.teams.find((t) => t.id === s.winnerTeamId)?.score ?? 0;
+              setStep({
+                id: "super_swap_confirm",
+                wc: s.wc,
+                winnerTeamId: s.winnerTeamId,
+                pickedPlayerName: s.pickedPlayerName,
+                chosenSong: s.chosenSong,
+                scoreA,
+                scoreB,
+              });
+            } else {
+              useWildcard(team.id, s.wc.id);
+              onUsed({ wildcardId: s.wc.id, supercomodin: null });
             }
           }}
           className={`w-full py-3 rounded-xl font-black text-sm ${
             canReveal
               ? success
                 ? "bg-green-600 hover:bg-green-500 text-white"
-                : "bg-canvas-800 text-zinc-300"
+                : "bg-canvas-800 text-zinc-300 hover:bg-canvas-700"
               : "bg-canvas-900 text-zinc-600 cursor-not-allowed"
           }`}
         >
-          {!canReveal ? "Introduce el resultado" : success ? "Robar los puntos →" : "Cerrar — sin transferencia"}
+          {!canReveal
+            ? "Introduce el resultado"
+            : success
+            ? "Ver intercambio →"
+            : "Cerrar — sin transferencia"}
         </button>
       </div>
     );
   };
 
-  const renderSuperWin = (step: Extract<Step, { id: "super_win" }>) => {
-    // Display values — read from live game state
-    const liveRival = game?.teams.find((t) => t.id === selectedRivalId);
-    const liveMe = game?.teams.find((t) => t.id === team.id);
-    const displayMyScore = liveMe?.score ?? 0;
-    const displayRivalScore = liveRival?.score ?? 0;
-
-    const doTransfer = () => {
-      if (!game) return;
-
-      // Read both scores fresh from game.teams at click time
-      const scoreA = game.teams.find((t) => t.id === team.id)?.score ?? 0;
-      const scoreB = game.teams.find((t) => t.id === selectedRivalId)?.score ?? 0;
-
-      // Simple swap: A gets B's points, B gets A's points
-      // Mark wildcard used in the same atomic setGame call
-      setGame({
-        ...game,
-        teams: game.teams.map((t) => {
-          if (t.id === team.id) {
-            return {
-              ...t,
-              score: scoreB,
-              wildcards: t.wildcards.map((w) =>
-                w.id === step.wc.id ? { ...w, used: true } : w
-              ),
-            };
-          }
-          if (t.id === selectedRivalId) {
-            return { ...t, score: scoreA };
-          }
-          return t;
-        }),
-      });
-
-      onUsed({
-        wildcardId: step.wc.id,
-        supercomodin: { rivalTeamId: selectedRivalId, points: scoreB },
-      });
-    };
-
+  const renderSuperSwapConfirm = (s: Extract<Step, { id: "super_swap_confirm" }>) => {
+    const winner = allTeams.find((t) => t.id === s.winnerTeamId);
     return (
       <div className="p-5 space-y-4 text-center">
-        <div className="text-4xl">⭐🏆</div>
+        <div className="text-4xl">⭐↔️</div>
         <div>
-          <p className="text-xl font-black text-white">¡Supercomodín activado!</p>
-          <p className="text-sm text-zinc-400 mt-1">Los puntos se intercambian entre equipos</p>
+          <p className="text-xl font-black text-white">Intercambio de puntos</p>
+          <p className="text-xs text-zinc-500 mt-1">Confirma para aplicar el intercambio</p>
         </div>
 
-        {rivalTeams.length > 1 && (
-          <div className="space-y-2 text-left">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest">¿Con qué equipo intercambias?</p>
-            {rivalTeams.map((rt) => (
-              <button
-                key={rt.id}
-                onClick={() => setSelectedRivalId(rt.id)}
-                className={`w-full p-3 rounded-xl border text-left transition-all ${
-                  selectedRivalId === rt.id
-                    ? `${TEAM_ACCENT[rt.color]} border-transparent text-white`
-                    : "bg-canvas-800 border-canvas-700 text-zinc-300"
-                }`}
-              >
-                <span className="font-bold">{rt.name}</span>
-                <span className="ml-2 text-sm opacity-70">{rt.score} pts</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="bg-canvas-800 rounded-xl p-3 text-sm space-y-1">
-          <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">Resultado del intercambio</p>
+        <div className="bg-canvas-800 rounded-xl p-4 space-y-3 text-sm text-left">
           <div className="flex items-center justify-between">
             <span className={`font-bold ${TEAM_TEXT[team.color]}`}>{team.name}</span>
-            <span className="text-white font-black">{displayMyScore} → {displayRivalScore}</span>
+            <span className="font-black">
+              <span className="text-zinc-500">{s.scoreA}</span>
+              <span className="text-zinc-600"> → </span>
+              <span className="text-green-400">{s.scoreB}</span>
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className={`font-bold ${TEAM_TEXT[liveRival?.color ?? "rose"]}`}>{liveRival?.name ?? "Rival"}</span>
-            <span className="text-white font-black">{displayRivalScore} → {displayMyScore}</span>
+            <span className={`font-bold ${winner ? TEAM_TEXT[winner.color] : "text-white"}`}>
+              {winner?.name ?? "Rival"}
+            </span>
+            <span className="font-black">
+              <span className="text-zinc-500">{s.scoreB}</span>
+              <span className="text-zinc-600"> → </span>
+              <span className="text-zinc-300">{s.scoreA}</span>
+            </span>
           </div>
         </div>
 
@@ -512,12 +593,129 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
             Cancelar
           </button>
           <button
-            onClick={doTransfer}
+            onClick={() =>
+              setStep({
+                id: "super_verify_offer",
+                wc: s.wc,
+                winnerTeamId: s.winnerTeamId,
+                pickedPlayerName: s.pickedPlayerName,
+                chosenSong: s.chosenSong,
+                scoreA: s.scoreA,
+                scoreB: s.scoreB,
+              })
+            }
             className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-sm"
           >
-            Transferir ✓
+            Confirmar ✓
           </button>
         </div>
+      </div>
+    );
+  };
+
+  const renderSuperVerifyOffer = (s: Extract<Step, { id: "super_verify_offer" }>) => {
+    const winner = allTeams.find((t) => t.id === s.winnerTeamId);
+    return (
+      <div className="p-5 space-y-4">
+        <div className="text-center space-y-2">
+          <div className="text-4xl">🔍</div>
+          <p className="text-lg font-black text-white">¿Verificación?</p>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            El equipo{" "}
+            <span className={`font-bold ${winner ? TEAM_TEXT[winner.color] : "text-white"}`}>
+              {winner?.name ?? "rival"}
+            </span>{" "}
+            puede pedir que{" "}
+            <span className="font-bold text-white">{s.pickedPlayerName}</span>{" "}
+            cante la canción completa.
+          </p>
+        </div>
+
+        <div className="bg-canvas-800/60 rounded-xl p-3 space-y-2 text-xs text-zinc-500">
+          <p>
+            <span className="text-green-400 font-bold">Si canta bien</span> → {team.name} gana la partida de inmediato.
+          </p>
+          <p>
+            <span className="text-red-400 font-bold">Si no puede cantarla</span> → el intercambio se anula y {team.name} pierde todos sus puntos.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => {
+              doSwap(s.wc, s.winnerTeamId, s.scoreA, s.scoreB);
+              onUsed({ wildcardId: s.wc.id, supercomodin: { rivalTeamId: s.winnerTeamId, points: s.scoreB } });
+            }}
+            className="w-full py-3 rounded-xl bg-canvas-800 hover:bg-canvas-700 text-zinc-300 font-bold text-sm"
+          >
+            No verificar — terminar aquí
+          </button>
+          <button
+            onClick={() =>
+              setStep({
+                id: "super_verify_judge",
+                wc: s.wc,
+                winnerTeamId: s.winnerTeamId,
+                pickedPlayerName: s.pickedPlayerName,
+                chosenSong: s.chosenSong,
+                scoreA: s.scoreA,
+                scoreB: s.scoreB,
+              })
+            }
+            className={`w-full py-3 rounded-xl text-white font-black text-sm ${winner ? TEAM_ACCENT[winner.color] : "bg-zinc-600"}`}
+          >
+            Sí, verificar →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSuperVerifyJudge = (s: Extract<Step, { id: "super_verify_judge" }>) => {
+    const winner = allTeams.find((t) => t.id === s.winnerTeamId);
+    return (
+      <div className="p-5 space-y-4">
+        <div className="text-center space-y-2">
+          <div className="text-4xl">🎤</div>
+          <p className="text-lg font-black text-white">Verificación</p>
+          <p className="text-sm text-zinc-400">
+            ¿Puede <span className="font-bold text-white">{s.pickedPlayerName}</span> cantar la canción completa?
+          </p>
+          <div className="inline-block bg-canvas-800 rounded-xl px-4 py-2 text-sm font-bold text-white">
+            «{s.chosenSong}»
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 pt-2">
+          <button
+            onClick={() => {
+              doSwap(s.wc, s.winnerTeamId, s.scoreA, s.scoreB);
+              onUsed({ wildcardId: s.wc.id, supercomodin: { rivalTeamId: s.winnerTeamId, points: s.scoreB, gameOver: true } });
+            }}
+            className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-sm leading-snug"
+          >
+            ✓ Sí puede cantarla
+            <span className="block text-xs font-normal text-green-200 mt-0.5">
+              {team.name} gana la partida
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              doPenalty(s.wc);
+              onUsed({ wildcardId: s.wc.id, supercomodin: null });
+            }}
+            className="w-full py-4 rounded-xl bg-red-900/60 hover:bg-red-900 text-red-300 border border-red-800/50 font-black text-sm leading-snug"
+          >
+            ✗ No puede cantarla
+            <span className="block text-xs font-normal text-red-400/70 mt-0.5">
+              Intercambio anulado · {team.name} pierde todos sus puntos
+            </span>
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-zinc-600">
+          El equipo {winner?.name ?? "rival"} solicitó la verificación
+        </p>
       </div>
     );
   };
@@ -526,18 +724,22 @@ export default function WildcardModal({ team, allTeams, context = "free", disabl
 
   const renderContent = () => {
     switch (step.id) {
-      case "grid":         return renderGrid();
-      case "detail":       return renderDetail(step.wc);
-      case "silencio_pick":return renderSilenzioPick(step.wc);
-      case "super1":       return renderSuper1(step.wc);
-      case "super2":       return renderSuper2(step);
-      case "super3":       return renderSuper3(step);
-      case "super4":       return renderSuper4(step);
-      case "super_win":    return renderSuperWin(step);
-      case "super_fail":   return (
+      case "grid":               return renderGrid();
+      case "detail":             return renderDetail(step.wc);
+      case "silencio_pick":      return renderSilenzioPick(step.wc);
+      case "super1":             return renderSuper1(step);
+      case "super_pick_player":  return renderSuperPickPlayer(step);
+      case "super_songs":        return renderSuperSongs(step);
+      case "super_predict":      return renderSuperPredict(step);
+      case "super_hum":          return renderSuperHum(step);
+      case "super_swap_confirm": return renderSuperSwapConfirm(step);
+      case "super_verify_offer": return renderSuperVerifyOffer(step);
+      case "super_verify_judge": return renderSuperVerifyJudge(step);
+      case "super_fail":         return (
         <div className="p-5 text-center space-y-4">
           <div className="text-4xl">💨</div>
           <p className="text-lg font-black text-white">Sin transferencia</p>
+          <p className="text-sm text-zinc-500">La predicción no se cumplió</p>
           <button onClick={onClose} className="w-full py-3 rounded-xl bg-canvas-800 text-zinc-300 font-semibold text-sm">Cerrar</button>
         </div>
       );

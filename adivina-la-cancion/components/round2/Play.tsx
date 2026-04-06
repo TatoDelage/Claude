@@ -308,7 +308,9 @@ export default function Play({
         break;
       }
       case "supercomodin":
-        if (effect.supercomodin) {
+        if (effect.supercomodin?.gameOver) {
+          onComplete(results);
+        } else if (effect.supercomodin) {
           setActiveEffect(`⭐ Supercomodín — ${effect.supercomodin.points} pts transferidos`);
         }
         break;

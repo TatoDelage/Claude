@@ -290,7 +290,11 @@ export default function Play({
         if (effect.silencio) setActiveEffect(`🔇 ${effect.silencio.playerName} bloqueado/a`);
         break;
       case "supercomodin":
-        if (effect.supercomodin) setActiveEffect(`⭐ Supercomodín — ${effect.supercomodin.points} pts transferidos`);
+        if (effect.supercomodin?.gameOver) {
+          onComplete(results);
+        } else if (effect.supercomodin) {
+          setActiveEffect(`⭐ Supercomodín — ${effect.supercomodin.points} pts transferidos`);
+        }
         break;
     }
   };

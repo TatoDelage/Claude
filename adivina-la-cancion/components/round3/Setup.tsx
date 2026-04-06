@@ -80,7 +80,8 @@ export default function Setup({
     setSongs((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
-  const allComplete = songs.every((s) => s.title.trim() || s.artist.trim());
+  // Artist is required in R3 because the "Cantante" wildcard (artist-only) needs it.
+  const allComplete = songs.every((s) => s.title.trim() !== "" && s.artist.trim() !== "");
 
   const handleStart = () => {
     onStart({ responseDuration, songs });
@@ -152,25 +153,37 @@ export default function Setup({
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
             Canciones
           </p>
-          {songs.map((song, i) => (
-            <div key={i} className="space-y-1.5">
-              <p className="text-xs text-zinc-500 font-medium">Canción {i + 1}</p>
-              <input
-                type="text"
-                placeholder="Título"
-                value={song.title}
-                onChange={(e) => updateSong(i, "title", e.target.value)}
-                className="w-full bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-              />
-              <input
-                type="text"
-                placeholder="Artista"
-                value={song.artist}
-                onChange={(e) => updateSong(i, "artist", e.target.value)}
-                className="w-full bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-              />
-            </div>
-          ))}
+          {songs.map((song, i) => {
+            const artistMissing = song.title.trim() !== "" && song.artist.trim() === "";
+            return (
+              <div key={i} className="space-y-1.5">
+                <p className="text-xs text-zinc-500 font-medium">Canción {i + 1}</p>
+                <input
+                  type="text"
+                  placeholder="Título"
+                  value={song.title}
+                  onChange={(e) => updateSong(i, "title", e.target.value)}
+                  className="w-full bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                />
+                <input
+                  type="text"
+                  placeholder="Artista *"
+                  value={song.artist}
+                  onChange={(e) => updateSong(i, "artist", e.target.value)}
+                  className={`w-full bg-canvas-800/80 border rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none transition-colors ${
+                    artistMissing
+                      ? "border-red-500/60 focus:border-red-400"
+                      : "border-canvas-700/60 focus:border-zinc-500"
+                  }`}
+                />
+                {artistMissing && (
+                  <p className="text-xs text-red-400 font-medium">
+                    El artista es obligatorio · necesario para el comodín 🎤 Cantante
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </section>
 
         <button

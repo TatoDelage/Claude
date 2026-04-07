@@ -266,6 +266,9 @@ export default function Play({
       setTurnCorrect(newCorrect);
       setSongIdx(nextIdx);
       snap.current.songIdx = nextIdx;
+      // Reset per-song wildcard effects — Cantante applies only to the current song
+      setCantanteMode(false);
+      setActiveEffect(null);
     }
   };
 

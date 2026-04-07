@@ -18,7 +18,8 @@ export default function Setup({
   };
 
   const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
-  const allFilled = songs.every((s) => s.title.trim() || s.artist.trim());
+  // Title is always required; artist is optional in R5 (Cantante wildcard not available)
+  const allFilled = songs.every((s) => s.title.trim() !== "");
   const canStart = allFilled && totalPlayers > 0;
 
   const teamsWithNoPlayers = teams.filter((t) => t.players.length === 0);
@@ -90,36 +91,48 @@ export default function Setup({
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
               Banco de canciones
             </p>
-            <span className="text-xs text-zinc-600">{songs.filter((s) => s.title.trim() || s.artist.trim()).length}/{BANK_SIZE}</span>
+            <span className="text-xs text-zinc-600">{songs.filter((s) => s.title.trim()).length}/{BANK_SIZE}</span>
           </div>
 
           <div className="space-y-3">
-            {songs.map((song, i) => (
-              <div key={song.id} className="space-y-1.5">
-                <p className="text-xs text-zinc-600 font-medium">#{i + 1}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Título"
-                    value={song.title}
-                    onChange={(e) => updateSong(song.id, "title", e.target.value)}
-                    className="bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Artista"
-                    value={song.artist}
-                    onChange={(e) => updateSong(song.id, "artist", e.target.value)}
-                    className="bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-                  />
+            {songs.map((song, i) => {
+              const titleMissing = song.artist.trim() !== "" && song.title.trim() === "";
+              return (
+                <div key={song.id} className="space-y-1.5">
+                  <p className="text-xs text-zinc-600 font-medium">#{i + 1}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                      <input
+                        type="text"
+                        placeholder="Título *"
+                        value={song.title}
+                        onChange={(e) => updateSong(song.id, "title", e.target.value)}
+                        className={`w-full bg-canvas-800/80 border rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none transition-colors ${
+                          titleMissing
+                            ? "border-red-500/60 focus:border-red-400"
+                            : "border-canvas-700/60 focus:border-zinc-500"
+                        }`}
+                      />
+                      {titleMissing && (
+                        <p className="text-[10px] text-red-400 font-medium px-1">Título obligatorio</p>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Artista"
+                      value={song.artist}
+                      onChange={(e) => updateSong(song.id, "artist", e.target.value)}
+                      className="bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <button
-          onClick={() => onStart({ songs: songs.filter((s) => s.title.trim() || s.artist.trim()) })}
+          onClick={() => onStart({ songs: songs.filter((s) => s.title.trim()) })}
           disabled={!canStart}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             canStart

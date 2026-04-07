@@ -194,17 +194,25 @@ export default function Setup({
             {currentTeam.name}
           </p>
           {songs.map((song, i) => {
+            const titleMissing = song.artist.trim() !== "" && song.title.trim() === "";
             const artistMissing = song.title.trim() !== "" && song.artist.trim() === "";
             return (
               <div key={i} className="space-y-1.5">
                 <p className="text-xs text-zinc-500 font-medium">Canción {i + 1}</p>
                 <input
                   type="text"
-                  placeholder="Título"
+                  placeholder="Título *"
                   value={song.title}
                   onChange={(e) => updateSong(currentTeam.id, i, "title", e.target.value)}
-                  className="w-full bg-canvas-900/80 border border-canvas-700/60 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                  className={`w-full bg-canvas-900/80 border rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:outline-none transition-colors ${
+                    titleMissing
+                      ? "border-red-500/60 focus:border-red-400"
+                      : "border-canvas-700/60 focus:border-zinc-500"
+                  }`}
                 />
+                {titleMissing && (
+                  <p className="text-xs text-red-400 font-medium">El título es obligatorio</p>
+                )}
                 <input
                   type="text"
                   placeholder="Artista *"

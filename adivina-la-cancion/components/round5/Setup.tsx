@@ -2,7 +2,23 @@
 
 import { useState } from "react";
 import { Team } from "@/lib/types";
-import { SongEntry, Round5Setup, BANK_SIZE, TURN_DURATION, POINTS_WIN, emptyBank } from "@/lib/round5";
+import {
+  SongEntry,
+  Round5Setup,
+  BANK_SIZE,
+  TURN_DURATION,
+  MIN_TURN_DURATION,
+  MAX_TURN_DURATION,
+  POINTS_WIN,
+  emptyBank,
+} from "@/lib/round5";
+
+function formatDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds} segundos`;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return secs === 0 ? `${mins} minuto${mins !== 1 ? "s" : ""}` : `${mins} min ${secs}s`;
+}
 
 export default function Setup({
   teams,
@@ -12,6 +28,7 @@ export default function Setup({
   onStart: (setup: Round5Setup) => void;
 }) {
   const [songs, setSongs] = useState<SongEntry[]>(emptyBank);
+  const [turnDuration, setTurnDuration] = useState(TURN_DURATION);
 
   const updateSong = (id: string, field: "title" | "artist", value: string) => {
     setSongs((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
@@ -32,7 +49,7 @@ export default function Setup({
         </p>
         <h1 className="text-2xl font-black">Relámpago</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          {BANK_SIZE} canciones · {TURN_DURATION}s por jugador · solo aciertos
+          {BANK_SIZE} canciones · {turnDuration}s por jugador · solo aciertos
         </p>
       </header>
 
@@ -63,6 +80,47 @@ export default function Setup({
             Los comodines <span className="text-zinc-500">Silencio</span> y{" "}
             <span className="text-zinc-500">Robo</span> no están disponibles en esta ronda.
           </p>
+        </section>
+
+        {/* Timer config */}
+        <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Tiempo por jugador</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Duración del turno</p>
+              <p className="text-xs text-zinc-500">Mín. {MIN_TURN_DURATION}s · Máx. {MAX_TURN_DURATION}s</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setTurnDuration((v) => Math.max(MIN_TURN_DURATION, v - 15))}
+                className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
+              >
+                −
+              </button>
+              <span className="w-14 text-center text-white font-black tabular-nums">{turnDuration}s</span>
+              <button
+                onClick={() => setTurnDuration((v) => Math.min(MAX_TURN_DURATION, v + 15))}
+                className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          {/* Time estimate */}
+          {totalPlayers > 0 && (
+            <div className="bg-canvas-800 rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-xl">⏱</span>
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {totalPlayers} jugador{totalPlayers !== 1 ? "es" : ""} × {turnDuration}s
+                  {" = "}
+                  <span className="text-zinc-300">{formatDuration(totalPlayers * turnDuration)}</span>
+                  {" "}aproximadamente
+                </p>
+                <p className="text-xs text-zinc-600 mt-0.5">sin contar el tiempo de recarga del banco</p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Players warning */}
@@ -132,7 +190,7 @@ export default function Setup({
         </section>
 
         <button
-          onClick={() => onStart({ songs: songs.filter((s) => s.title.trim()) })}
+          onClick={() => onStart({ songs: songs.filter((s) => s.title.trim()), turnDuration })}
           disabled={!canStart}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             canStart

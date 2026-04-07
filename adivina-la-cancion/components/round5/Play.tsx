@@ -7,7 +7,6 @@ import {
   Round5Result,
   SongEntry,
   PlayerTurnResult,
-  TURN_DURATION,
   BANK_SIZE,
   POINTS_WIN,
   songId,
@@ -224,7 +223,7 @@ export default function Play({
   // ── Start current player's turn
   const startTurn = () => {
     setPhase("active");
-    timer.start(TURN_DURATION, doEndTurn);
+    timer.start(setup.turnDuration, doEndTurn);
   };
 
   // ── Advance to next player after bank replenishment
@@ -461,7 +460,7 @@ export default function Play({
                 <p className="text-xs text-amber-400 font-bold">👑 Capitán</p>
               )}
               <p className="text-zinc-500 text-sm">
-                {TURN_DURATION}s · {bank.length} canciones en el banco
+                {setup.turnDuration}s · {bank.length} canciones en el banco
               </p>
             </div>
             <button

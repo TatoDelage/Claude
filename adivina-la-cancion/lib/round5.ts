@@ -1,6 +1,8 @@
 export const ROUND5_KEY = "adivina_round5";
 export const BANK_SIZE = 15;
-export const TURN_DURATION = 60;
+export const TURN_DURATION = 60; // default; configurable in Setup
+export const MIN_TURN_DURATION = 15;
+export const MAX_TURN_DURATION = 120;
 export const POINTS_WIN = 100;
 
 export interface SongEntry {
@@ -21,6 +23,7 @@ export interface PlayerTurnResult {
 
 export interface Round5Setup {
   songs: SongEntry[];
+  turnDuration: number;
 }
 
 export interface Round5Result {

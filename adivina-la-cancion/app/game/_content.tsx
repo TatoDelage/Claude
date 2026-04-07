@@ -7,6 +7,7 @@ import { GameState, RoundStatus } from "@/lib/types";
 import Scoreboard from "@/components/Scoreboard";
 import RoundTracker from "@/components/RoundTracker";
 import WildcardModal from "@/components/WildcardModal";
+import VictoryScreen from "@/components/VictoryScreen";
 
 const ROUND_ROUTES: Record<number, string> = {
   1: "/round1",
@@ -30,6 +31,7 @@ export default function GameContent() {
   const router = useRouter();
   const { game, hydrated, resetGame, setGame } = useGame();
   const [wildcardTeamId, setWildcardTeamId] = useState<string | null>(null);
+  const [showVictory, setShowVictory] = useState(false);
   const [devMode, setDevMode] = useState(
     () => typeof window !== "undefined" && localStorage.getItem(DEV_KEY) === "1"
   );
@@ -41,11 +43,11 @@ export default function GameContent() {
   if (!hydrated || !game) return null;
 
   const handleReset = () => {
-    if (confirm("¿Seguro que quieres terminar la partida y volver al inicio?")) {
-      resetGame();
-      router.replace("/");
-    }
+    resetGame();
+    router.replace("/");
   };
+
+  const allRoundsDone = game?.rounds.every((r) => r.status === "completed") ?? false;
 
   const toggleDevMode = () => {
     const next = !devMode;
@@ -98,7 +100,7 @@ export default function GameContent() {
             {devMode ? "⚙ dev on" : "⚙ dev"}
           </button>
           <button
-            onClick={handleReset}
+            onClick={() => setShowVictory(true)}
             className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
           >
             Terminar
@@ -185,6 +187,11 @@ export default function GameContent() {
           />
         ) : null;
       })()}
+
+      {/* Victory screen — shown when all rounds done or presenter taps Terminar */}
+      {(showVictory || allRoundsDone) && (
+        <VictoryScreen teams={game.teams} onNewGame={handleReset} />
+      )}
     </main>
   );
 }

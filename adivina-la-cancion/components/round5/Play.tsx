@@ -379,22 +379,61 @@ export default function Play({
         </div>
       </header>
 
-      {/* Live score bar */}
-      <div className="flex gap-2 px-4 py-3 border-b border-canvas-700/60 justify-center flex-wrap">
+      {/* R5 aciertos — prominent live counter (visible from a distance) */}
+      {(() => {
+        // Running R5 correct count per team: completed turns + active turn
+        const r5Correct: Record<string, number> = {};
+        for (const r of allResults) {
+          r5Correct[r.teamId] = (r5Correct[r.teamId] ?? 0) + r.correct;
+        }
+        if (currentPlayer && phase === "active") {
+          r5Correct[currentPlayer.teamId] = (r5Correct[currentPlayer.teamId] ?? 0) + turnCorrect;
+        }
+        return (
+          <div className="flex gap-3 px-4 pt-4 pb-3 border-b border-canvas-700/60">
+            {teams.map((team) => {
+              const tcc = TEAM_COLOR[team.color];
+              const isActive = currentPlayer?.teamId === team.id && phase === "active";
+              const correct = r5Correct[team.id] ?? 0;
+              return (
+                <div
+                  key={team.id}
+                  className={`flex-1 flex flex-col items-center py-4 rounded-2xl transition-all ${
+                    isActive ? `${tcc.badge} shadow-lg` : "bg-canvas-800"
+                  }`}
+                >
+                  <span className={`text-xs font-bold uppercase tracking-wide ${isActive ? "text-white/70" : tcc.text}`}>
+                    {team.name}
+                  </span>
+                  <span className={`text-6xl font-black tabular-nums leading-none mt-1 ${isActive ? "text-white" : "text-white"}`}>
+                    {correct}
+                  </span>
+                  <span className={`text-xs mt-1 ${isActive ? "text-white/60" : "text-zinc-600"}`}>
+                    aciertos
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Global pts — secondary reference */}
+      <div className="flex gap-2 px-4 py-2 border-b border-canvas-700/40 justify-center flex-wrap">
         {teams.map((team) => {
           const tcc = TEAM_COLOR[team.color];
           const isCurrent = currentPlayer?.teamId === team.id;
           return (
             <div
               key={team.id}
-              className={`flex flex-col items-center px-5 py-2 rounded-2xl font-bold transition-all ${
-                isCurrent ? `${tcc.badge} text-white shadow-lg` : "bg-canvas-800 text-zinc-300"
-              }`}
+              className="flex items-center gap-1.5"
             >
-              <span className={`text-xs uppercase tracking-wide leading-none mb-1 ${isCurrent ? "text-white/80" : tcc.text}`}>
+              <span className={`text-xs font-bold ${isCurrent ? tcc.text : "text-zinc-600"}`}>
                 {team.name}
               </span>
-              <span className="text-2xl font-black tabular-nums leading-none">{team.score}</span>
+              <span className={`text-xs tabular-nums ${isCurrent ? "text-zinc-300" : "text-zinc-600"}`}>
+                {team.score} pts
+              </span>
             </div>
           );
         })}

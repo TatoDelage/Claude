@@ -29,6 +29,8 @@ export interface Team {
   name: string;
   score: number;
   wildcards: Wildcard[];
+  /** Last normal round in which this team used a wildcard. Supercomodín does not consume this quota. */
+  lastWildcardRound?: number;
   color: TeamColor;
   players: Player[];
 }

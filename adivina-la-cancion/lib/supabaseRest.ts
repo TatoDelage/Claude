@@ -56,6 +56,14 @@ export interface RemoteRoom {
   players: RemoteGamePlayer[];
 }
 
+export interface ClaimedPlayer {
+  player_id: string;
+  display_name: string;
+  team_number: number | null;
+  is_captain: boolean;
+  is_presenter: boolean;
+}
+
 export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<RemoteGame> {
   assertConfig();
 
@@ -91,7 +99,7 @@ export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<Remot
       team_number: teamIndex + 1,
       is_captain: player.isCaptain,
       is_presenter: false,
-      device_active: player.isCaptain,
+      device_active: false,
       sort_order: playerIndex,
     }))
   );
@@ -139,4 +147,35 @@ export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | nu
 
   const players = (await playersResponse.json()) as RemoteGamePlayer[];
   return { game, players };
+}
+
+export async function claimRemotePlayer(
+  code: string,
+  playerId: string,
+  deviceToken: string
+): Promise<ClaimedPlayer> {
+  assertConfig();
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_game_player`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      p_join_code: code.trim().toUpperCase(),
+      p_player_id: playerId,
+      p_device_token: deviceToken,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    if (detail.includes("player_already_claimed")) {
+      throw new Error("Ese jugador ya está conectado desde otro dispositivo");
+    }
+    throw new Error("No se pudo vincular este dispositivo con el jugador");
+  }
+
+  const rows = (await response.json()) as ClaimedPlayer[];
+  const player = rows[0];
+  if (!player) throw new Error("No se pudo identificar al jugador");
+  return player;
 }

@@ -122,6 +122,20 @@ export async function submitRemoteDuelOrder(code: string, captainPlayerId: strin
   if (!response.ok) throw new Error("No se pudo guardar el orden del equipo");
 }
 
+export async function hostSubmitRemoteDuelOrder(code: string, hostToken: string, teamNumber: number, playerIds: string[]) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/host_submit_duel_order`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      p_join_code: code.trim().toUpperCase(),
+      p_host_token: hostToken,
+      p_team_number: teamNumber,
+      p_ordered_player_ids: playerIds,
+    }),
+  });
+  if (!response.ok) throw new Error("No se pudo guardar el orden desde el presentador");
+}
+
 export async function getRemoteDuelOrders(code: string, hostToken: string): Promise<DuelOrderRow[]> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_duel_orders`, { method: "POST", headers: headers(), body: JSON.stringify({ p_join_code: code.trim().toUpperCase(), p_host_token: hostToken }) });
   if (!response.ok) throw new Error("No se pudieron cargar los órdenes de duelo");

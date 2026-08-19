@@ -7,6 +7,15 @@ interface HostLobbyProps {
   onStarted: () => void;
 }
 
+const TEAM_STYLES = [
+  "border-violet-700/40 bg-violet-950/20",
+  "border-amber-700/40 bg-amber-950/20",
+  "border-sky-700/40 bg-sky-950/20",
+  "border-rose-700/40 bg-rose-950/20",
+];
+
+const TEAM_DOTS = ["bg-violet-400", "bg-amber-400", "bg-sky-400", "bg-rose-400"];
+
 export default function HostLobby({ onStarted }: HostLobbyProps) {
   const [code, setCode] = useState<string | null>(null);
   const [hostToken, setHostToken] = useState<string | null>(null);
@@ -68,33 +77,42 @@ export default function HostLobby({ onStarted }: HostLobbyProps) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      <section className="rounded-3xl border border-canvas-700 bg-canvas-900 p-6 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Lobby</p>
-        <h1 className="text-3xl font-black mt-2">Todo preparado</h1>
-        <p className="text-sm text-zinc-500 mt-2">Los jugadores pueden entrar con el código de sala antes de empezar.</p>
+    <div className="game-stage max-w-3xl mx-auto px-4 py-10 space-y-7">
+      <section className="game-panel rounded-[2rem] p-7 sm:p-9 text-center overflow-hidden relative">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-300/50 to-transparent" />
+        <p className="game-kicker">Lobby</p>
+        <h1 className="game-title text-4xl sm:text-5xl mt-3">La partida está lista</h1>
+        <p className="game-muted text-sm sm:text-base mt-3 max-w-md mx-auto">
+          Que entren los jugadores, reclamen su nombre y empiece el inevitable exceso de confianza musical.
+        </p>
 
-        <div className="mt-6 rounded-2xl bg-canvas-800 p-5">
-          <p className="text-xs uppercase tracking-widest text-zinc-500">Código de sala</p>
-          <p className="text-4xl font-black tracking-[0.2em] text-emerald-400 mt-1">{code ?? "------"}</p>
-          <p className="text-xs text-zinc-500 mt-3">{connected} de {total || "…"} jugadores conectados</p>
+        <div className="mt-8 mx-auto max-w-md rounded-3xl border border-gold-300/20 bg-black/15 px-5 py-6">
+          <p className="text-[10px] uppercase tracking-[0.28em] font-black text-gold-300/70">Código de sala</p>
+          <p className="text-5xl sm:text-6xl font-black tracking-[0.18em] text-cream-50 mt-2 drop-shadow-lg">{code ?? "------"}</p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs game-muted">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,.45)]" />
+            {connected} de {total || "…"} jugadores conectados
+          </div>
         </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {teams.map((team) => (
-          <section key={team.number} className="rounded-2xl border border-canvas-700 bg-canvas-900 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-black">{team.name}</h2>
-              <span className="text-xs text-zinc-500">{team.players.filter((p) => p.device_active).length}/{team.players.length}</span>
+        {teams.map((team, index) => (
+          <section key={team.number} className={`rounded-3xl border p-5 ${TEAM_STYLES[index] ?? "border-canvas-700 bg-canvas-900"}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <span className={`w-2.5 h-2.5 rounded-full ${TEAM_DOTS[index] ?? "bg-cream-200"}`} />
+                <h2 className="font-black text-lg text-cream-50">{team.name}</h2>
+              </div>
+              <span className="text-xs game-muted">{team.players.filter((p) => p.device_active).length}/{team.players.length}</span>
             </div>
             <div className="space-y-2">
               {team.players.map((player) => (
-                <div key={player.id} className="flex items-center justify-between rounded-xl bg-canvas-800 px-3 py-2.5">
-                  <span className="text-sm font-medium">
-                    {player.display_name}{player.is_captain ? " 👑" : ""}
+                <div key={player.id} className="flex items-center justify-between rounded-2xl bg-black/15 border border-white/[0.035] px-3.5 py-3">
+                  <span className="text-sm font-bold text-cream-100">
+                    {player.display_name}{player.is_captain ? "  👑" : ""}
                   </span>
-                  <span className={`text-xs ${player.device_active ? "text-emerald-400" : "text-zinc-600"}`}>
+                  <span className={`text-[11px] font-bold ${player.device_active ? "text-emerald-300" : "text-zinc-600"}`}>
                     {player.device_active ? "● conectado" : "○ esperando"}
                   </span>
                 </div>
@@ -104,17 +122,17 @@ export default function HostLobby({ onStarted }: HostLobbyProps) {
         ))}
       </div>
 
-      {error && <p className="text-sm text-rose-400 text-center">{error}</p>}
+      {error && <p className="text-sm text-rose-300 text-center">{error}</p>}
 
       <button
         onClick={handleStart}
         disabled={!code || !hostToken || starting}
-        className="w-full rounded-2xl bg-white py-4 text-lg font-black text-zinc-900 active:scale-[0.99] transition-all disabled:opacity-40"
+        className="game-primary w-full rounded-2xl py-4.5 text-lg font-black transition-all"
       >
         {starting ? "Empezando…" : "Empezar partida"}
       </button>
 
-      <p className="text-xs text-zinc-600 text-center">No hace falta que todos tengan móvil conectado para empezar.</p>
+      <p className="text-xs game-muted text-center">No hace falta que todos tengan móvil conectado para empezar.</p>
     </div>
   );
 }

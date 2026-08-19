@@ -15,6 +15,13 @@ import {
 
 type Phase = "waiting" | "duels" | "final" | "results";
 
+const TEAM_STYLE: Record<string, { panel: string; text: string; dot: string; glow: string }> = {
+  violet: { panel: "border-violet-600/45 bg-violet-950/30", text: "text-violet-200", dot: "bg-violet-400", glow: "shadow-violet-950/25" },
+  amber: { panel: "border-amber-600/45 bg-amber-950/25", text: "text-amber-200", dot: "bg-amber-400", glow: "shadow-amber-950/25" },
+  sky: { panel: "border-sky-600/45 bg-sky-950/25", text: "text-sky-200", dot: "bg-sky-400", glow: "shadow-sky-950/25" },
+  rose: { panel: "border-rose-600/45 bg-rose-950/25", text: "text-rose-200", dot: "bg-rose-400", glow: "shadow-rose-950/25" },
+};
+
 export default function Round3Content() {
   const router = useRouter();
   const { game, hydrated, setGame, adjustScore } = useGame();
@@ -47,12 +54,20 @@ export default function Round3Content() {
     const load = async () => {
       try {
         const [nextRoom, nextOrders] = await Promise.all([getRemoteRoomByCode(code), getRemoteDuelOrders(code, hostToken)]);
-        if (!cancelled) { if (nextRoom) setRoom(nextRoom); setOrders(nextOrders); }
-      } catch (err) { if (!cancelled) setError(err instanceof Error ? err.message : "No se pudo sincronizar Duelos"); }
+        if (!cancelled) {
+          if (nextRoom) setRoom(nextRoom);
+          setOrders(nextOrders);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "No se pudo sincronizar Duelos");
+      }
     };
     load();
     const timer = window.setInterval(load, 500);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [code, hostToken]);
 
   const teamCount = game?.teams.length ?? 0;
@@ -68,7 +83,8 @@ export default function Round3Content() {
   const currentParticipants = orderedParticipants[duelIndex] ?? [];
   const currentEligible = currentParticipants.filter((id) => !eliminated.includes(id));
   const currentWinnerId = duelStarted && room?.game.buzzer_winner_player_id && currentParticipants.includes(room.game.buzzer_winner_player_id)
-    ? room.game.buzzer_winner_player_id : null;
+    ? room.game.buzzer_winner_player_id
+    : null;
   const currentWinner = currentWinnerId ? room?.players.find((p) => p.id === currentWinnerId) ?? null : null;
   const directPlayer = directPlayerId ? room?.players.find((p) => p.id === directPlayerId) ?? null : null;
 
@@ -76,15 +92,27 @@ export default function Round3Content() {
 
   const teamName = (teamNumber: number | null) => teamNumber ? game.teams[teamNumber - 1]?.name ?? `Equipo ${teamNumber}` : "Equipo";
   const playerName = (id: string) => room?.players.find((p) => p.id === id)?.display_name ?? "Jugador";
+  const styleForTeam = (teamNumber: number | null) => {
+    const color = teamNumber ? game.teams[teamNumber - 1]?.color : undefined;
+    return color ? TEAM_STYLE[color] : TEAM_STYLE.violet;
+  };
 
-  const revealDuels = () => { if (allSubmitted) setPhase("duels"); };
+  const revealDuels = () => {
+    if (allSubmitted) setPhase("duels");
+  };
 
   const openCurrentDuel = async (ids = currentEligible) => {
     if (!code || !hostToken || ids.length < 2) return;
-    setBusy(true); setError(null);
-    try { await openDuelBuzzer(code, hostToken, ids); setDuelStarted(true); }
-    catch (err) { setError(err instanceof Error ? err.message : "No se pudo abrir el duelo"); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError(null);
+    try {
+      await openDuelBuzzer(code, hostToken, ids);
+      setDuelStarted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo abrir el duelo");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const addDuelWin = (playerId: string) => {
@@ -96,10 +124,14 @@ export default function Round3Content() {
 
   const advanceDuel = (winnerId?: string) => {
     if (winnerId) addDuelWin(winnerId);
-    setEliminated([]); setDirectPlayerId(null); setDuelStarted(false);
+    setEliminated([]);
+    setDirectPlayerId(null);
+    setDuelStarted(false);
     if (duelIndex + 1 >= duelCount) {
       window.setTimeout(() => finishDuelStage(winnerId), 0);
-    } else setDuelIndex((i) => i + 1);
+    } else {
+      setDuelIndex((i) => i + 1);
+    }
   };
 
   const finishDuelStage = (lastWinnerId?: string) => {
@@ -113,8 +145,9 @@ export default function Round3Content() {
     const entries = game.teams.map((_, i) => [i + 1, wins[i + 1] ?? 0] as const);
     const max = Math.max(...entries.map(([, value]) => value));
     const tied = entries.filter(([, value]) => value === max).map(([team]) => team);
-    if (tied.length === 1) awardRound(tied[0]);
-    else {
+    if (tied.length === 1) {
+      awardRound(tied[0]);
+    } else {
       const survivors = winners.filter((id) => tied.includes(room?.players.find((p) => p.id === id)?.team_number ?? -1));
       setFinalEligible(survivors);
       setPhase("final");
@@ -122,7 +155,9 @@ export default function Round3Content() {
     }
   };
 
-  const markBuzzCorrect = () => { if (currentWinnerId) advanceDuel(currentWinnerId); };
+  const markBuzzCorrect = () => {
+    if (currentWinnerId) advanceDuel(currentWinnerId);
+  };
 
   const markBuzzWrong = async () => {
     if (!currentWinnerId || !code || !hostToken) return;
@@ -143,28 +178,40 @@ export default function Round3Content() {
     if (roundWinnerTeam) return;
     const team = game.teams[teamNumber - 1];
     if (team) adjustScore(team.id, 100);
-    setRoundWinnerTeam(teamNumber); setPhase("results");
+    setRoundWinnerTeam(teamNumber);
+    setPhase("results");
   };
 
   const openFinal = async () => {
     if (!code || !hostToken || finalEligible.length < 2) return;
-    setBusy(true); setError(null);
-    try { await openDuelBuzzer(code, hostToken, finalEligible); setDuelStarted(true); }
-    catch (err) { setError(err instanceof Error ? err.message : "No se pudo abrir el Duelo Final"); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError(null);
+    try {
+      await openDuelBuzzer(code, hostToken, finalEligible);
+      setDuelStarted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo abrir el Duelo Final");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const finalWinnerId = phase === "final" && duelStarted && room?.game.buzzer_winner_player_id && finalEligible.includes(room.game.buzzer_winner_player_id)
-    ? room.game.buzzer_winner_player_id : null;
+    ? room.game.buzzer_winner_player_id
+    : null;
   const finalWinner = finalWinnerId ? room?.players.find((p) => p.id === finalWinnerId) ?? null : null;
 
   const finalAnswer = async (correct: boolean) => {
     if (!finalWinnerId || !code || !hostToken) return;
     const player = room?.players.find((p) => p.id === finalWinnerId);
-    if (correct && player?.team_number) { awardRound(player.team_number); return; }
+    if (correct && player?.team_number) {
+      awardRound(player.team_number);
+      return;
+    }
     await closeRemoteBuzzer(code, hostToken).catch(() => {});
     const remaining = finalEligible.filter((id) => id !== finalWinnerId);
-    setFinalEligible(remaining); setDuelStarted(false);
+    setFinalEligible(remaining);
+    setDuelStarted(false);
     const teamsRemaining = [...new Set(remaining.map((id) => room?.players.find((p) => p.id === id)?.team_number).filter(Boolean))] as number[];
     if (teamsRemaining.length === 1) awardRound(teamsRemaining[0]);
   };
@@ -172,47 +219,222 @@ export default function Round3Content() {
   const continueToRound4 = () => {
     const roundStatus = (n: number): RoundStatus => n < 4 ? "completed" : n === 4 ? "active" : "pending";
     const updated: GameState = { ...game, currentRound: 4, rounds: game.rounds.map((r) => ({ ...r, status: roundStatus(r.number) })) };
-    setGame(updated); router.replace("/game");
+    setGame(updated);
+    router.replace("/game");
   };
 
-  if (!code || !hostToken) return <main className="min-h-screen bg-canvas-950 text-white flex items-center justify-center px-4 text-center">Esta partida no tiene conexión remota disponible. Duelos necesita la sala compartida.</main>;
+  if (!code || !hostToken) {
+    return <main className="game-stage min-h-screen flex items-center justify-center px-4 text-center text-cream-100">Esta partida no tiene conexión remota disponible. Duelos necesita la sala compartida.</main>;
+  }
 
   if (phase === "waiting") return (
-    <main className="min-h-screen bg-canvas-950 text-white px-4 py-8"><div className="max-w-2xl mx-auto space-y-6">
-      <header><p className="text-xs uppercase tracking-widest text-zinc-500">Ronda 3</p><h1 className="text-3xl font-black mt-1">Duelos</h1><p className="text-zinc-400 mt-2">Cada capitán ordena a su equipo en secreto desde su móvil. Cuando estén todos, se revelan los enfrentamientos.</p></header>
-      <div className="space-y-3">{game.teams.map((team, index) => { const order = orders.find((o) => o.team_number === index + 1); return <div key={team.id} className="rounded-2xl border border-canvas-700 bg-canvas-900 p-4 flex items-center justify-between"><div><p className="font-black">{team.name}</p><p className="text-xs text-zinc-500 mt-1">El capitán decide el orden</p></div><span className={`text-sm font-black ${order ? "text-emerald-400" : "text-amber-400"}`}>{order ? "✓ Enviado" : "Esperando…"}</span></div>; })}</div>
-      {unequalTeams && <div className="rounded-xl border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-300">Los equipos tienen distinto número de jugadores. En esta versión se jugarán {duelCount} posiciones, hasta el tamaño del equipo más pequeño.</div>}
-      {error && <p className="text-rose-400 text-sm text-center">{error}</p>}
-      <button onClick={revealDuels} disabled={!allSubmitted} className="w-full py-4 rounded-2xl bg-white text-zinc-900 font-black disabled:opacity-30">{allSubmitted ? "Revelar duelos" : `Esperando órdenes (${orders.length}/${teamCount})`}</button>
-    </div></main>
+    <main className="game-stage min-h-screen px-4 py-10">
+      <div className="max-w-3xl mx-auto space-y-7">
+        <header className="text-center max-w-xl mx-auto">
+          <p className="game-kicker">Ronda 3</p>
+          <h1 className="game-title text-5xl mt-3">Duelos</h1>
+          <p className="game-muted mt-3">Los capitanes están colocando sus piezas. El orden rival sigue oculto.</p>
+        </header>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {game.teams.map((team, index) => {
+            const order = orders.find((o) => o.team_number === index + 1);
+            const style = TEAM_STYLE[team.color];
+            return (
+              <div key={team.id} className={`rounded-3xl border p-5 ${style.panel} shadow-xl ${style.glow}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2"><span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} /><p className={`font-black text-lg ${style.text}`}>{team.name}</p></div>
+                    <p className="text-xs game-muted mt-2">El capitán decide el orden secreto</p>
+                  </div>
+                  <div className={`h-11 px-3 rounded-2xl flex items-center text-xs font-black ${order ? "bg-emerald-400/10 text-emerald-300 border border-emerald-500/20" : "bg-gold-300/[0.06] text-gold-300 border border-gold-300/15"}`}>
+                    {order ? "✓ ENVIADO" : "ESPERANDO"}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {unequalTeams && (
+          <div className="rounded-2xl border border-gold-300/20 bg-gold-300/[0.06] px-4 py-3 text-sm text-gold-300 text-center">
+            Los equipos tienen distinto tamaño. Se jugarán {duelCount} posiciones, hasta el equipo más pequeño.
+          </div>
+        )}
+        {error && <p className="text-rose-300 text-sm text-center">{error}</p>}
+
+        <button onClick={revealDuels} disabled={!allSubmitted} className="game-primary w-full py-4 rounded-2xl font-black text-lg transition-all">
+          {allSubmitted ? "Revelar enfrentamientos" : `Esperando órdenes · ${orders.length}/${teamCount}`}
+        </button>
+      </div>
+    </main>
   );
 
-  if (phase === "results") return (
-    <main className="min-h-screen bg-canvas-950 text-white px-4 py-8"><div className="max-w-2xl mx-auto space-y-6 text-center"><p className="text-xs uppercase tracking-widest text-zinc-500">Duelos completados</p><h1 className="text-4xl font-black">🏆 {roundWinnerTeam ? teamName(roundWinnerTeam) : "Ganador"}</h1><p className="text-zinc-400">+100 puntos por ganar la ronda</p><div className="grid gap-3 text-left">{game.teams.map((team, index) => <div key={team.id} className="rounded-xl border border-canvas-700 bg-canvas-900 px-4 py-3 flex justify-between"><span>{team.name}</span><span className="font-black">{duelWins[index + 1] ?? 0} duelos · {team.score} pts</span></div>)}</div><button onClick={continueToRound4} className="w-full py-4 rounded-2xl bg-white text-zinc-900 font-black">Continuar a Cultura musical →</button></div></main>
-  );
+  if (phase === "results") {
+    const winnerStyle = roundWinnerTeam ? styleForTeam(roundWinnerTeam) : TEAM_STYLE.violet;
+    return (
+      <main className="game-stage min-h-screen px-4 py-12 flex items-center">
+        <div className="max-w-3xl mx-auto w-full space-y-8 text-center">
+          <header>
+            <p className="game-kicker">Duelos completados</p>
+            <div className={`mx-auto mt-5 w-20 h-20 rounded-full border flex items-center justify-center text-4xl ${winnerStyle.panel}`}>🏆</div>
+            <h1 className={`game-title text-5xl sm:text-6xl mt-5 ${winnerStyle.text}`}>{roundWinnerTeam ? teamName(roundWinnerTeam) : "Ganador"}</h1>
+            <p className="text-gold-300 font-black mt-2">+100 puntos</p>
+          </header>
+
+          <div className="grid gap-3 sm:grid-cols-2 text-left">
+            {game.teams.map((team, index) => {
+              const style = TEAM_STYLE[team.color];
+              return (
+                <div key={team.id} className={`rounded-3xl border p-5 ${style.panel}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className={`font-black ${style.text}`}>{team.name}</p><p className="text-xs game-muted mt-1">{duelWins[index + 1] ?? 0} duelos ganados</p></div>
+                    <p className="text-3xl font-black text-cream-50">{team.score}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button onClick={continueToRound4} className="game-primary w-full py-4 rounded-2xl font-black text-lg transition-all">Continuar a Cultura musical →</button>
+        </div>
+      </main>
+    );
+  }
 
   if (phase === "final") return (
-    <main className="min-h-screen bg-canvas-950 text-white px-4 py-8"><div className="max-w-2xl mx-auto space-y-6">
-      <header className="text-center"><p className="text-xs uppercase tracking-[0.3em] text-amber-500">Empate</p><h1 className="text-4xl font-black mt-2">⚔️ Duelo Final</h1><p className="text-zinc-400 mt-2">Solo sobreviven quienes ganaron su duelo. Fallar elimina al jugador.</p></header>
-      <div className="flex flex-wrap justify-center gap-2">{finalEligible.map((id) => <span key={id} className="px-3 py-2 rounded-full bg-canvas-900 border border-canvas-700 font-bold">{playerName(id)}</span>)}</div>
-      {!duelStarted ? <button onClick={openFinal} disabled={busy || finalEligible.length < 2} className="w-full py-5 rounded-2xl bg-rose-600 font-black text-xl disabled:opacity-40">Abrir Duelo Final</button> : finalWinner ? <section className="rounded-2xl border border-amber-700/50 bg-amber-950/20 p-6 text-center space-y-4"><p className="text-xs uppercase tracking-widest text-amber-400">Ha pulsado primero</p><p className="text-3xl font-black">{finalWinner.display_name}</p><div className="grid grid-cols-2 gap-3"><button onClick={() => finalAnswer(false)} className="py-4 rounded-xl bg-rose-950/50 border border-rose-800/50 text-rose-300 font-black">Falla · eliminado</button><button onClick={() => finalAnswer(true)} className="py-4 rounded-xl bg-emerald-950/50 border border-emerald-800/50 text-emerald-300 font-black">Acierta · gana</button></div></section> : <div className="rounded-2xl bg-canvas-900 border border-canvas-700 p-6 text-center text-zinc-400">Esperando pulsación…</div>}
-      {error && <p className="text-rose-400 text-sm text-center">{error}</p>}
-    </div></main>
+    <main className="game-stage min-h-screen px-4 py-10">
+      <div className="max-w-3xl mx-auto space-y-7">
+        <header className="text-center">
+          <p className="game-kicker">Empate</p>
+          <h1 className="game-title text-5xl sm:text-6xl mt-3">DUELO FINAL</h1>
+          <p className="game-muted mt-3">Solo sobreviven quienes ganaron su duelo. Fallar elimina al jugador.</p>
+        </header>
+
+        <div className="flex flex-wrap justify-center gap-2">
+          {finalEligible.map((id) => {
+            const player = room?.players.find((p) => p.id === id);
+            const style = styleForTeam(player?.team_number ?? null);
+            return <span key={id} className={`px-4 py-2 rounded-full border font-black ${style.panel} ${style.text}`}>{playerName(id)}</span>;
+          })}
+        </div>
+
+        {!duelStarted ? (
+          <button onClick={openFinal} disabled={busy || finalEligible.length < 2} className="game-danger w-full py-5 rounded-2xl font-black text-xl transition-all disabled:opacity-35">ABRIR DUELO FINAL</button>
+        ) : finalWinner ? (
+          <section className="game-panel rounded-[2rem] p-7 text-center space-y-5 border-gold-300/30">
+            <p className="game-kicker">Ha pulsado primero</p>
+            <p className="game-title text-5xl">{finalWinner.display_name}</p>
+            <p className={`font-black ${styleForTeam(finalWinner.team_number).text}`}>{teamName(finalWinner.team_number)}</p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button onClick={() => finalAnswer(false)} className="py-4 rounded-2xl bg-rose-950/45 border border-rose-700/35 text-rose-200 font-black">Falla · eliminado</button>
+              <button onClick={() => finalAnswer(true)} className="py-4 rounded-2xl bg-emerald-950/40 border border-emerald-700/35 text-emerald-200 font-black">Acierta · gana</button>
+            </div>
+          </section>
+        ) : (
+          <div className="game-panel rounded-[2rem] p-10 text-center">
+            <p className="text-3xl font-black text-cream-50 animate-pulse">ESPERANDO PULSACIÓN</p>
+            <p className="game-muted text-sm mt-2">Cualquiera de los supervivientes puede decidir la ronda.</p>
+          </div>
+        )}
+        {error && <p className="text-rose-300 text-sm text-center">{error}</p>}
+      </div>
+    </main>
   );
 
   return (
-    <main className="min-h-screen bg-canvas-950 text-white px-4 py-8"><div className="max-w-2xl mx-auto space-y-6">
-      <header><p className="text-xs uppercase tracking-widest text-zinc-500">Duelos · {duelIndex + 1}/{duelCount}</p><h1 className="text-3xl font-black mt-1">Posición {duelIndex + 1}</h1></header>
-      <section className="rounded-2xl border border-canvas-700 bg-canvas-900 p-5"><div className="grid gap-3">{currentParticipants.map((id) => { const p = room?.players.find((x) => x.id === id); const isOut = eliminated.includes(id); return <div key={id} className={`rounded-xl px-4 py-3 flex items-center justify-between ${isOut ? "bg-rose-950/20 opacity-50" : "bg-canvas-800"}`}><div><p className="font-black">{p?.display_name}</p><p className="text-xs text-zinc-500">{teamName(p?.team_number ?? null)}</p></div><span>{isOut ? "Eliminado" : "Listo"}</span></div>; })}</div></section>
+    <main className="game-stage min-h-screen px-4 py-7 sm:py-10">
+      <div className="max-w-4xl mx-auto space-y-7">
+        <header className="text-center">
+          <p className="game-kicker">Duelo {duelIndex + 1} de {duelCount}</p>
+          <h1 className="game-title text-4xl mt-2">Cara a cara</h1>
+        </header>
 
-      {!duelStarted && !directPlayerId && currentEligible.length >= 2 && <button onClick={() => openCurrentDuel()} disabled={busy} className="w-full py-5 rounded-2xl bg-rose-600 text-xl font-black disabled:opacity-50">Abrir pulsadores</button>}
-      {duelStarted && !currentWinner && <div className="rounded-2xl bg-canvas-900 border border-canvas-700 p-6 text-center"><p className="text-xl font-black">Esperando pulsación…</p><p className="text-sm text-zinc-500 mt-1">Solo estos jugadores tienen el botón activo.</p></div>}
-      {duelStarted && currentWinner && <section className="rounded-2xl border border-amber-700/50 bg-amber-950/15 p-6 text-center space-y-4"><p className="text-xs uppercase tracking-widest text-amber-400">Ha pulsado primero</p><p className="text-3xl font-black">{currentWinner.display_name}</p><p className="text-sm text-zinc-500">{teamName(currentWinner.team_number)}</p><div className="grid grid-cols-2 gap-3"><button onClick={markBuzzWrong} className="py-4 rounded-xl bg-rose-950/50 border border-rose-800/50 text-rose-300 font-black">Falla</button><button onClick={markBuzzCorrect} className="py-4 rounded-xl bg-emerald-950/50 border border-emerald-800/50 text-emerald-300 font-black">Acierta · gana duelo</button></div></section>}
-      {!duelStarted && !directPlayerId && currentEligible.length === 1 && <section className="rounded-2xl border border-amber-700/40 bg-amber-950/15 p-5 text-center space-y-3"><p className="text-sm text-zinc-500">Solo queda un jugador</p><p className="text-2xl font-black">{playerName(currentEligible[0])}</p><div className="grid grid-cols-2 gap-3"><button onClick={() => advanceDuel()} className="py-3 rounded-xl bg-rose-950/50 text-rose-300 font-black">Falla</button><button onClick={() => advanceDuel(currentEligible[0])} className="py-3 rounded-xl bg-emerald-950/50 text-emerald-300 font-black">Acierta</button></div></section>}
-      {directPlayer && <section className="rounded-2xl border border-sky-700/40 bg-sky-950/15 p-5 text-center space-y-3"><p className="text-xs uppercase tracking-widest text-sky-400">Oportunidad directa</p><p className="text-2xl font-black">{directPlayer.display_name}</p><p className="text-sm text-zinc-500">El rival falló. Responde sin pulsador.</p><div className="grid grid-cols-2 gap-3"><button onClick={() => directAnswer(false)} className="py-3 rounded-xl bg-rose-950/50 text-rose-300 font-black">Falla</button><button onClick={() => directAnswer(true)} className="py-3 rounded-xl bg-emerald-950/50 text-emerald-300 font-black">Acierta</button></div></section>}
+        <section className={`grid gap-3 ${currentParticipants.length === 2 ? "sm:grid-cols-[1fr_auto_1fr] items-stretch" : "sm:grid-cols-2"}`}>
+          {currentParticipants.map((id, index) => {
+            const p = room?.players.find((x) => x.id === id);
+            const isOut = eliminated.includes(id);
+            const style = styleForTeam(p?.team_number ?? null);
+            return (
+              <div key={id} className="contents">
+                {index === 1 && currentParticipants.length === 2 && (
+                  <div className="hidden sm:flex items-center justify-center px-1"><span className="text-gold-300 text-xl font-black italic">VS</span></div>
+                )}
+                <div className={`relative overflow-hidden min-h-48 rounded-[2rem] border p-6 flex flex-col justify-between text-center shadow-2xl ${style.glow} ${style.panel} ${isOut ? "opacity-30 grayscale" : ""}`}>
+                  <div className={`absolute inset-x-0 top-0 h-1 ${style.dot}`} />
+                  <div>
+                    <p className={`text-[10px] uppercase tracking-[0.2em] font-black ${style.text}`}>{teamName(p?.team_number ?? null)}</p>
+                    <p className="game-title text-4xl sm:text-5xl mt-5 break-words">{p?.display_name}</p>
+                  </div>
+                  <p className={`text-xs font-black uppercase tracking-widest mt-5 ${isOut ? "text-rose-300" : "game-muted"}`}>{isOut ? "Eliminado" : "Listo"}</p>
+                </div>
+              </div>
+            );
+          })}
+        </section>
 
-      <section className="grid gap-2">{game.teams.map((team, index) => <div key={team.id} className="rounded-xl bg-canvas-900 border border-canvas-700 px-4 py-3 flex justify-between"><span>{team.name}</span><span className="font-black">{duelWins[index + 1] ?? 0} victorias</span></div>)}</section>
-      {error && <p className="text-rose-400 text-sm text-center">{error}</p>}
-    </div></main>
+        {!duelStarted && !directPlayerId && currentEligible.length >= 2 && (
+          <button onClick={() => openCurrentDuel()} disabled={busy} className="game-danger w-full py-5 rounded-2xl text-xl font-black tracking-wide transition-all disabled:opacity-40">ABRIR PULSADORES</button>
+        )}
+
+        {duelStarted && !currentWinner && (
+          <div className="game-panel rounded-[2rem] p-9 text-center border-rose-500/15">
+            <div className="mx-auto w-3 h-3 rounded-full bg-rose-400 shadow-[0_0_24px_rgba(251,113,133,.65)] animate-pulse" />
+            <p className="text-3xl font-black text-cream-50 mt-5 tracking-tight">ESPERANDO PULSACIÓN</p>
+            <p className="game-muted text-sm mt-2">Solo los jugadores de este duelo tienen el botón activo.</p>
+          </div>
+        )}
+
+        {duelStarted && currentWinner && (
+          <section className="game-panel rounded-[2rem] border-gold-300/30 p-7 text-center space-y-5">
+            <p className="game-kicker">Ha pulsado primero</p>
+            <p className="game-title text-5xl sm:text-6xl">{currentWinner.display_name}</p>
+            <p className={`font-black ${styleForTeam(currentWinner.team_number).text}`}>{teamName(currentWinner.team_number)}</p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button onClick={markBuzzWrong} className="py-4 rounded-2xl bg-rose-950/45 border border-rose-700/35 text-rose-200 font-black">Falla</button>
+              <button onClick={markBuzzCorrect} className="py-4 rounded-2xl bg-emerald-950/40 border border-emerald-700/35 text-emerald-200 font-black">Acierta · gana duelo</button>
+            </div>
+          </section>
+        )}
+
+        {!duelStarted && !directPlayerId && currentEligible.length === 1 && (
+          <section className="game-panel rounded-[2rem] p-6 text-center space-y-4 border-gold-300/25">
+            <p className="game-kicker">Último en pie</p>
+            <p className="game-title text-4xl">{playerName(currentEligible[0])}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => advanceDuel()} className="py-3.5 rounded-2xl bg-rose-950/45 text-rose-200 font-black border border-rose-700/30">Falla</button>
+              <button onClick={() => advanceDuel(currentEligible[0])} className="py-3.5 rounded-2xl bg-emerald-950/40 text-emerald-200 font-black border border-emerald-700/30">Acierta</button>
+            </div>
+          </section>
+        )}
+
+        {directPlayer && (
+          <section className={`rounded-[2rem] border p-6 text-center space-y-4 ${styleForTeam(directPlayer.team_number).panel}`}>
+            <p className="game-kicker">Oportunidad directa</p>
+            <p className="game-title text-4xl">{directPlayer.display_name}</p>
+            <p className="game-muted text-sm">El rival falló. Responde sin pulsador.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => directAnswer(false)} className="py-3.5 rounded-2xl bg-rose-950/45 text-rose-200 font-black border border-rose-700/30">Falla</button>
+              <button onClick={() => directAnswer(true)} className="py-3.5 rounded-2xl bg-emerald-950/40 text-emerald-200 font-black border border-emerald-700/30">Acierta</button>
+            </div>
+          </section>
+        )}
+
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {game.teams.map((team, index) => {
+            const style = TEAM_STYLE[team.color];
+            return (
+              <div key={team.id} className={`rounded-2xl border px-3 py-3 text-center ${style.panel}`}>
+                <p className={`text-[10px] uppercase tracking-wider font-black truncate ${style.text}`}>{team.name}</p>
+                <p className="text-2xl font-black text-cream-50 mt-1">{duelWins[index + 1] ?? 0}</p>
+                <p className="text-[10px] game-muted">victorias</p>
+              </div>
+            );
+          })}
+        </section>
+
+        {error && <p className="text-rose-300 text-sm text-center">{error}</p>}
+      </div>
+    </main>
   );
 }

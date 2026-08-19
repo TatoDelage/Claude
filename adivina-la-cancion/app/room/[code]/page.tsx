@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   claimRemotePlayer,
   getRemoteRoomByCode,
+  pressRemoteBuzzer,
   RemoteRoom,
 } from "@/lib/supabaseRest";
 
@@ -29,6 +30,8 @@ export default function RoomPage() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimedPlayerId, setClaimedPlayerId] = useState<string | null>(null);
+  const [pressing, setPressing] = useState(false);
+  const [pressMessage, setPressMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setClaimedPlayerId(localStorage.getItem(`${PLAYER_KEY_PREFIX}${code}`));
@@ -58,7 +61,7 @@ export default function RoomPage() {
     };
 
     load();
-    const interval = window.setInterval(load, 2000);
+    const interval = window.setInterval(load, 500);
 
     return () => {
       cancelled = true;
@@ -78,6 +81,9 @@ export default function RoomPage() {
   }, [room]);
 
   const claimedPlayer = room?.players.find((player) => player.id === claimedPlayerId) ?? null;
+  const buzzerWinner = room?.game.buzzer_winner_player_id
+    ? room.players.find((player) => player.id === room.game.buzzer_winner_player_id) ?? null
+    : null;
 
   const handleClaim = async (playerId: string) => {
     setClaimingId(playerId);
@@ -93,6 +99,28 @@ export default function RoomPage() {
       setClaimError(err instanceof Error ? err.message : "No se pudo elegir jugador");
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  const handlePress = async () => {
+    if (!claimedPlayerId || pressing || !room?.game.buzzer_open) return;
+    setPressing(true);
+    setPressMessage(null);
+    try {
+      const result = await pressRemoteBuzzer(code, claimedPlayerId, getDeviceToken());
+      if (result.won) {
+        setPressMessage("¡Has pulsado primero!");
+      } else if (result.winner_name) {
+        setPressMessage(`${result.winner_name} ha pulsado antes`);
+      } else {
+        setPressMessage("El pulsador ya estaba cerrado");
+      }
+      const nextRoom = await getRemoteRoomByCode(code);
+      if (nextRoom) setRoom(nextRoom);
+    } catch (err) {
+      setPressMessage(err instanceof Error ? err.message : "No se pudo registrar el pulsador");
+    } finally {
+      setPressing(false);
     }
   };
 
@@ -132,9 +160,6 @@ export default function RoomPage() {
               Equipo {claimedPlayer.team_number}
               {claimedPlayer.is_captain ? " · 👑 Capitán" : " · Jugador"}
             </p>
-            <div className="mt-4 rounded-xl bg-canvas-900 px-4 py-3 text-sm text-zinc-400">
-              Tu dispositivo ya está vinculado a esta partida.
-            </div>
           </section>
         ) : (
           <section className="rounded-2xl border border-canvas-700 bg-canvas-900 p-4">
@@ -142,6 +167,32 @@ export default function RoomPage() {
             <p className="text-xs text-zinc-500 text-center mt-1">
               Elige tu jugador para vincular este móvil a la partida.
             </p>
+          </section>
+        )}
+
+        {claimedPlayer && (
+          <section className={`rounded-3xl border p-4 ${room.game.buzzer_open ? "border-emerald-700/60 bg-emerald-950/20" : "border-canvas-700 bg-canvas-900"}`}>
+            {room.game.buzzer_open ? (
+              <button
+                onClick={handlePress}
+                disabled={pressing}
+                className="w-full min-h-44 rounded-3xl bg-rose-600 hover:bg-rose-500 active:scale-95 transition-all text-white text-4xl font-black shadow-xl disabled:opacity-70"
+              >
+                {pressing ? "..." : "PULSAR"}
+              </button>
+            ) : buzzerWinner ? (
+              <div className={`rounded-2xl px-4 py-6 text-center ${buzzerWinner.id === claimedPlayer.id ? "bg-emerald-950/50 border border-emerald-700/50" : "bg-canvas-800"}`}>
+                <p className="text-xs uppercase tracking-widest text-zinc-500">Primero en pulsar</p>
+                <p className="text-2xl font-black mt-1">{buzzerWinner.display_name}</p>
+                <p className="text-sm text-zinc-400 mt-1">Equipo {buzzerWinner.team_number}</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-canvas-800 px-4 py-6 text-center">
+                <p className="text-lg font-black text-zinc-400">Pulsador cerrado</p>
+                <p className="text-xs text-zinc-600 mt-1">Espera a que el presentador lo abra.</p>
+              </div>
+            )}
+            {pressMessage && <p className="text-sm text-center mt-3 text-zinc-300">{pressMessage}</p>}
           </section>
         )}
 

@@ -8,6 +8,7 @@ import Scoreboard from "@/components/Scoreboard";
 import RoundTracker from "@/components/RoundTracker";
 import WildcardModal from "@/components/WildcardModal";
 import VictoryScreen from "@/components/VictoryScreen";
+import RemoteBuzzerHost from "@/components/RemoteBuzzerHost";
 
 const ROUND_ROUTES: Record<number, string> = {
   1: "/round1",
@@ -55,7 +56,6 @@ export default function GameContent() {
     localStorage.setItem(DEV_KEY, next ? "1" : "0");
   };
 
-  // In dev mode: set the target round as active and navigate directly.
   const jumpToRound = (roundNumber: number) => {
     const roundStatus = (n: number): RoundStatus =>
       n < roundNumber ? "completed" : n === roundNumber ? "active" : "pending";
@@ -73,7 +73,6 @@ export default function GameContent() {
 
   return (
     <main className="min-h-screen bg-canvas-950 text-white">
-      {/* Top bar */}
       <header className="sticky top-0 z-10 bg-canvas-950/90 backdrop-blur border-b border-canvas-700/60 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-black text-white">🎵 Adivina la Canción</span>
@@ -108,9 +107,7 @@ export default function GameContent() {
         </div>
       </header>
 
-      {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
-        {/* Play active round CTA */}
         {activeRound && (
           <div className="bg-canvas-900 border border-zinc-700/60 rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -133,7 +130,8 @@ export default function GameContent() {
           </div>
         )}
 
-        {/* Dev mode jump panel */}
+        <RemoteBuzzerHost />
+
         {devMode && (
           <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3 space-y-2">
             <p className="text-xs font-bold text-amber-400/70 uppercase tracking-widest">
@@ -162,7 +160,6 @@ export default function GameContent() {
           </div>
         )}
 
-        {/* Scoreboard */}
         <Scoreboard
           teams={game.teams}
           onWildcard={(teamId) => setWildcardTeamId(teamId)}
@@ -175,7 +172,6 @@ export default function GameContent() {
         <div className="h-6" />
       </div>
 
-      {/* Wildcard modal */}
       {wildcardTeamId && (() => {
         const wildcardTeam = game.teams.find((t) => t.id === wildcardTeamId);
         return wildcardTeam ? (
@@ -188,7 +184,6 @@ export default function GameContent() {
         ) : null;
       })()}
 
-      {/* Victory screen — shown when all rounds done or presenter taps Terminar */}
       {(showVictory || allRoundsDone) && (
         <VictoryScreen teams={game.teams} onNewGame={handleReset} />
       )}

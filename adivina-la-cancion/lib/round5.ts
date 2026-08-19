@@ -1,9 +1,10 @@
 export const ROUND5_KEY = "adivina_round5";
 export const BANK_SIZE = 15;
-export const TURN_DURATION = 60; // default; configurable in Setup
+export const TURN_DURATION = 45;
+export const TIEBREAK_DURATION = 30;
 export const MIN_TURN_DURATION = 15;
 export const MAX_TURN_DURATION = 120;
-export const POINTS_WIN = 100;
+export const POINTS_WIN = 120;
 
 export interface SongEntry {
   id: string;
@@ -21,6 +22,12 @@ export interface PlayerTurnResult {
   songsShown: number;
 }
 
+export interface TiebreakResult {
+  round: number;
+  scores: Record<string, number>;
+  teamIds: string[];
+}
+
 export interface Round5Setup {
   songs: SongEntry[];
   turnDuration: number;
@@ -30,8 +37,8 @@ export interface Round5Setup {
 export interface Round5Result {
   playerResults: PlayerTurnResult[];
   correctByTeam: Record<string, number>;
-  /** Empty array = tie (no points awarded). Otherwise contains the single winning team id. */
   winningTeamIds: string[];
+  tiebreaks?: TiebreakResult[];
 }
 
 export function songId(): string {

@@ -48,12 +48,12 @@ export interface RemoteGamePlayer {
   is_presenter: boolean;
   device_active: boolean;
   sort_order: number;
-  duel_order?: number | null;
 }
 
 export interface RemoteRoom { game: RemoteGame; players: RemoteGamePlayer[] }
 export interface ClaimedPlayer { player_id: string; display_name: string; team_number: number | null; is_captain: boolean; is_presenter: boolean }
 export interface BuzzerPressResult { won: boolean; winner_player_id: string | null; winner_name: string | null; winner_team_number: number | null; pressed_at: string | null }
+export interface DuelOrderRow { team_number: number; ordered_player_ids: string[]; submitted_at: string }
 
 export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<RemoteGame> {
   assertConfig();
@@ -99,7 +99,7 @@ export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | nu
   const games = (await gameResponse.json()) as RemoteGame[];
   const game = games[0];
   if (!game) return null;
-  const playersResponse = await fetch(`${SUPABASE_URL}/rest/v1/game_players?game_id=eq.${game.id}&select=id,game_id,display_name,team_number,is_captain,is_presenter,device_active,sort_order,duel_order&order=team_number.asc,sort_order.asc`, { headers: headers(), cache: "no-store" });
+  const playersResponse = await fetch(`${SUPABASE_URL}/rest/v1/game_players?game_id=eq.${game.id}&select=id,game_id,display_name,team_number,is_captain,is_presenter,device_active,sort_order&order=team_number.asc,sort_order.asc`, { headers: headers(), cache: "no-store" });
   if (!playersResponse.ok) throw new Error(`No se pudieron cargar los jugadores (${playersResponse.status})`);
   return { game, players: (await playersResponse.json()) as RemoteGamePlayer[] };
 }
@@ -120,6 +120,12 @@ export async function claimRemotePlayer(code: string, playerId: string, deviceTo
 export async function submitRemoteDuelOrder(code: string, captainPlayerId: string, deviceToken: string, playerIds: string[]) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_duel_order`, { method: "POST", headers: headers(), body: JSON.stringify({ p_join_code: code.trim().toUpperCase(), p_captain_player_id: captainPlayerId, p_device_token: deviceToken, p_ordered_player_ids: playerIds }) });
   if (!response.ok) throw new Error("No se pudo guardar el orden del equipo");
+}
+
+export async function getRemoteDuelOrders(code: string, hostToken: string): Promise<DuelOrderRow[]> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_duel_orders`, { method: "POST", headers: headers(), body: JSON.stringify({ p_join_code: code.trim().toUpperCase(), p_host_token: hostToken }) });
+  if (!response.ok) throw new Error("No se pudieron cargar los órdenes de duelo");
+  return (await response.json()) as DuelOrderRow[];
 }
 
 export async function openDuelBuzzer(code: string, hostToken: string, playerIds: string[]) {

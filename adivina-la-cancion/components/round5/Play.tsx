@@ -49,18 +49,19 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
 
   const totals = (items: PlayerTurnResult[]) => { const map: Record<string, number> = {}; items.forEach((item) => { map[item.teamId] = (map[item.teamId] ?? 0) + item.correct; }); return map; };
 
-  const finishRound = (winnerId: string, history: TiebreakResult[] = []) => {
-    const scoreMap = totals(results);
+  const finishRound = (winnerId: string, history: TiebreakResult[] = [], allResults: PlayerTurnResult[] = results) => {
+    const scoreMap = totals(allResults);
     if (game) setGame({ ...game, teams: game.teams.map((team) => team.id === winnerId ? { ...team, score: team.score + POINTS_WIN } : team) });
-    onComplete({ playerResults: results, correctByTeam: scoreMap, winningTeamIds: [winnerId], tiebreaks: history });
+    onComplete({ playerResults: allResults, correctByTeam: scoreMap, winningTeamIds: [winnerId], tiebreaks: history });
   };
 
   const evaluateRound = (items: PlayerTurnResult[]) => {
     const scoreMap = totals(items);
     const max = Math.max(...teams.map((team) => scoreMap[team.id] ?? 0));
     const winners = teams.filter((team) => (scoreMap[team.id] ?? 0) === max).map((team) => team.id);
-    if (winners.length === 1) { setResults(items); setTimeout(() => finishRound(winners[0], []), 0); }
-    else { setResults(items); setTieIds(winners); setPhase("tiebreak"); }
+    setResults(items);
+    if (winners.length === 1) finishRound(winners[0], [], items);
+    else { setTieIds(winners); setPhase("tiebreak"); }
   };
 
   const finishTurn = () => {
@@ -89,14 +90,16 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
   if (current && phase === "active") runningTotals[current.teamId] = (runningTotals[current.teamId] ?? 0) + turnCorrect;
 
   const handleWildcard = (effect: WildcardEffect) => {
+    let resume = true;
     if (effect.wildcardId === "tiempo") { const seconds = effect.tiempo?.extraSeconds ?? 10; timer.addTime(seconds); setActiveEffect(`⏱ +${seconds}s`); }
     if (effect.wildcardId === "cantante") { setCantanteMode(true); setActiveEffect("🎤 Solo artista necesario"); }
-    if (effect.wildcardId === "otra") { advanceSong(false); setActiveEffect("🔄 Canción cambiada"); }
-    setWildcardOpen(false); timer.resume(finishTurn);
+    if (effect.wildcardId === "otra") { const lastSong = songIndex + 1 >= bank.length; advanceSong(false); setActiveEffect("🔄 Canción cambiada"); resume = !lastSong; }
+    setWildcardOpen(false);
+    if (resume) timer.resume(finishTurn);
   };
 
   if (!order.length) return <div className="min-h-screen bg-canvas-950 text-white flex items-center justify-center">Sin jugadores registrados.</div>;
-  if (phase === "tiebreak") return <Tiebreak teams={teams} initialTeamIds={tieIds} songs={setup.songs} onWinner={(winner, history) => finishRound(winner, history)} />;
+  if (phase === "tiebreak") return <Tiebreak teams={teams} initialTeamIds={tieIds} songs={setup.songs} onWinner={(winner, history) => finishRound(winner, history, results)} />;
 
   const liveTeam = game?.teams.find((team) => team.id === current?.teamId) ?? teams.find((team) => team.id === current?.teamId);
   const locked = liveTeam && game ? teamWildcardLocked(liveTeam, game.currentRound) : false;

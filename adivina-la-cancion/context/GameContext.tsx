@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from "react";
 import { GameState, WildcardId } from "@/lib/types";
-import { GAME_STATE_KEY } from "@/lib/gameFactory";
+import { GAME_STATE_KEY, OFFICIAL_ROUNDS } from "@/lib/gameFactory";
 
 interface GameContextValue {
   game: GameState | null;
@@ -25,16 +25,32 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | null>(null);
 
+function migrateRoundDefinitions(state: GameState): GameState {
+  return {
+    ...state,
+    rounds: OFFICIAL_ROUNDS.map((official) => {
+      const saved = state.rounds.find((round) => round.number === official.number);
+      return {
+        ...official,
+        status: saved?.status ?? official.status,
+      };
+    }),
+  };
+}
+
 export function GameProvider({ children }: { children: ReactNode }) {
-  // Always start null so server and client render identically on first pass.
   const [game, setGameState] = useState<GameState | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  // Read localStorage only after mount (client-side only).
   useEffect(() => {
     try {
       const saved = localStorage.getItem(GAME_STATE_KEY);
-      if (saved) setGameState(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved) as GameState;
+        const migrated = migrateRoundDefinitions(parsed);
+        setGameState(migrated);
+        localStorage.setItem(GAME_STATE_KEY, JSON.stringify(migrated));
+      }
     } catch {
       // corrupted data — ignore
     }

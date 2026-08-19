@@ -134,6 +134,19 @@ export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<Remot
   return { ...game, host_token: hostToken };
 }
 
+export async function startRemoteGame(code: string, hostToken: string) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/start_remote_game`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      p_join_code: code.trim().toUpperCase(),
+      p_host_token: hostToken,
+    }),
+  });
+
+  if (!response.ok) throw new Error("No se pudo empezar la partida");
+}
+
 export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | null> {
   assertConfig();
   const normalized = code.trim().toUpperCase();

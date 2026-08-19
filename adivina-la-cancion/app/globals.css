@@ -1,18 +1,155 @@
 @import "tailwindcss";
 
-/* ── Dark near-black surface palette with barely-there greenish warmth ── */
 @theme {
-  --color-canvas-950: #0f1210;
-  --color-canvas-900: #141918;
-  --color-canvas-800: #1a1f1c;
-  --color-canvas-700: #252d29;
-  --color-canvas-600: #303a35;
+  --color-canvas-950: #08110d;
+  --color-canvas-900: #0d1812;
+  --color-canvas-800: #132119;
+  --color-canvas-700: #21352a;
+  --color-canvas-600: #324a3c;
+
+  --color-cream-50: #fffaf0;
+  --color-cream-100: #f7efd9;
+  --color-cream-200: #e9ddbd;
+  --color-gold-300: #e9c66c;
+  --color-gold-400: #d9ad46;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  background: var(--color-canvas-950);
+}
+
 body {
-  background-color: var(--color-canvas-950);
+  min-height: 100vh;
+  color: var(--color-cream-50);
+  background:
+    radial-gradient(circle at 12% -5%, rgba(59, 116, 79, 0.18), transparent 34rem),
+    radial-gradient(circle at 88% 8%, rgba(217, 173, 70, 0.08), transparent 24rem),
+    var(--color-canvas-950);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+::selection {
+  background: rgba(233, 198, 108, 0.28);
+}
+
+.game-kicker {
+  color: var(--color-gold-300);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.game-title {
+  color: var(--color-cream-50);
+  font-weight: 950;
+  letter-spacing: -0.035em;
+}
+
+.game-muted {
+  color: #879b8d;
+}
+
+.game-panel {
+  border: 1px solid rgba(111, 145, 122, 0.22);
+  background: linear-gradient(180deg, rgba(18, 34, 25, 0.94), rgba(12, 24, 18, 0.96));
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22), inset 0 1px rgba(255,255,255,0.025);
+}
+
+.game-panel-soft {
+  border: 1px solid rgba(111, 145, 122, 0.16);
+  background: rgba(17, 31, 23, 0.68);
+}
+
+.game-primary {
+  color: #172017;
+  background: linear-gradient(180deg, #fff9e8, #eee1bd);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), inset 0 1px white;
+}
+
+.game-primary:hover {
+  filter: brightness(1.035);
+}
+
+.game-primary:active {
+  transform: scale(0.985);
+}
+
+.game-primary:disabled {
+  opacity: 0.32;
+  filter: saturate(0.2);
+}
+
+.game-gold {
+  color: #221b0b;
+  background: linear-gradient(180deg, #eccb78, #cfa13d);
+  box-shadow: 0 10px 30px rgba(96, 70, 12, 0.18);
+}
+
+.game-danger {
+  color: #fff7f4;
+  background: linear-gradient(180deg, #ef5f58, #c93e3b);
+  box-shadow: 0 10px 30px rgba(120, 25, 25, 0.22);
+}
+
+.game-choice {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(233, 198, 108, 0.24);
+  background: linear-gradient(135deg, rgba(28, 49, 36, 0.96), rgba(14, 28, 20, 0.98));
+  box-shadow: inset 0 1px rgba(255,255,255,0.03);
+}
+
+.game-choice::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 0%, rgba(233,198,108,.07) 48%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform .35s ease;
+}
+
+.game-choice:hover::after {
+  transform: translateX(120%);
+}
+
+.game-choice:hover {
+  border-color: rgba(233, 198, 108, 0.48);
+  transform: translateY(-1px);
+}
+
+.game-choice:active {
+  transform: scale(0.985);
+}
+
+.game-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.game-stage::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 15%, rgba(56, 112, 76, 0.13), transparent 38rem);
 }

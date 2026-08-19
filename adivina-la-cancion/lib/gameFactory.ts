@@ -30,7 +30,7 @@ const WILDCARDS: Omit<Wildcard, "used">[] = [
   { id: "supercomodin", name: "Supercomodín", emoji: "⭐", description: "Tararear y predecir aciertos", type: WILDCARD_TYPES.supercomodin },
 ];
 
-const ROUNDS: Round[] = [
+export const OFFICIAL_ROUNDS: Round[] = [
   {
     number: 1,
     name: "Lo básico",
@@ -80,7 +80,7 @@ export function createGame(teamConfigs: TeamConfig[]): GameState {
     };
   });
 
-  const rounds: Round[] = ROUNDS.map((r) => ({ ...r }));
+  const rounds: Round[] = OFFICIAL_ROUNDS.map((r) => ({ ...r }));
   return { teams, currentRound: 0, rounds };
 }
 

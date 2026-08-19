@@ -2,7 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRemoteRoomByCode, RemoteRoom } from "@/lib/supabaseRest";
+import {
+  claimRemotePlayer,
+  getRemoteRoomByCode,
+  RemoteRoom,
+} from "@/lib/supabaseRest";
+
+const DEVICE_TOKEN_KEY = "adivina_device_token";
+const PLAYER_KEY_PREFIX = "adivina_claimed_player_";
+
+function getDeviceToken() {
+  const existing = localStorage.getItem(DEVICE_TOKEN_KEY);
+  if (existing) return existing;
+  const token = crypto.randomUUID();
+  localStorage.setItem(DEVICE_TOKEN_KEY, token);
+  return token;
+}
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
@@ -11,6 +26,13 @@ export default function RoomPage() {
   const [room, setRoom] = useState<RemoteRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimedPlayerId, setClaimedPlayerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClaimedPlayerId(localStorage.getItem(`${PLAYER_KEY_PREFIX}${code}`));
+  }, [code]);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +77,25 @@ export default function RoomPage() {
     }));
   }, [room]);
 
+  const claimedPlayer = room?.players.find((player) => player.id === claimedPlayerId) ?? null;
+
+  const handleClaim = async (playerId: string) => {
+    setClaimingId(playerId);
+    setClaimError(null);
+    try {
+      const token = getDeviceToken();
+      await claimRemotePlayer(code, playerId, token);
+      localStorage.setItem(`${PLAYER_KEY_PREFIX}${code}`, playerId);
+      setClaimedPlayerId(playerId);
+      const nextRoom = await getRemoteRoomByCode(code);
+      if (nextRoom) setRoom(nextRoom);
+    } catch (err) {
+      setClaimError(err instanceof Error ? err.message : "No se pudo elegir jugador");
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   if (loading) {
     return <main className="min-h-screen bg-canvas-950 text-white flex items-center justify-center">Cargando partida…</main>;
   }
@@ -83,6 +124,33 @@ export default function RoomPage() {
           </p>
         </div>
 
+        {claimedPlayer ? (
+          <section className="rounded-2xl border border-emerald-800/60 bg-emerald-950/20 p-5 text-center">
+            <p className="text-xs uppercase tracking-widest text-emerald-500">Estás conectado como</p>
+            <h2 className="text-2xl font-black mt-1">{claimedPlayer.display_name}</h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              Equipo {claimedPlayer.team_number}
+              {claimedPlayer.is_captain ? " · 👑 Capitán" : " · Jugador"}
+            </p>
+            <div className="mt-4 rounded-xl bg-canvas-900 px-4 py-3 text-sm text-zinc-400">
+              Tu dispositivo ya está vinculado a esta partida.
+            </div>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-canvas-700 bg-canvas-900 p-4">
+            <p className="font-black text-center">¿Quién eres?</p>
+            <p className="text-xs text-zinc-500 text-center mt-1">
+              Elige tu jugador para vincular este móvil a la partida.
+            </p>
+          </section>
+        )}
+
+        {claimError && (
+          <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-300 text-center">
+            {claimError}
+          </div>
+        )}
+
         <div className="grid gap-4">
           {teams.map((team) => (
             <section key={team.number} className="rounded-2xl border border-canvas-700 bg-canvas-900 p-4">
@@ -91,15 +159,32 @@ export default function RoomPage() {
                 <span className="text-xs text-zinc-500">{team.players.length} jugadores</span>
               </div>
               <div className="space-y-2">
-                {team.players.map((player) => (
-                  <div key={player.id} className="flex items-center justify-between rounded-xl bg-canvas-800 px-3 py-2.5">
-                    <span className="font-medium">{player.display_name}</span>
-                    <div className="flex items-center gap-2 text-xs">
-                      {player.is_captain && <span title="Capitán">👑</span>}
-                      {player.device_active && <span className="text-emerald-400">● conectado</span>}
+                {team.players.map((player) => {
+                  const isMe = player.id === claimedPlayerId;
+                  return (
+                    <div key={player.id} className={`rounded-xl px-3 py-2.5 ${isMe ? "bg-emerald-950/40 border border-emerald-700/50" : "bg-canvas-800"}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-medium">{player.display_name}</span>
+                          {player.is_captain && <span className="ml-2" title="Capitán">👑</span>}
+                        </div>
+                        {player.device_active ? (
+                          <span className={`text-xs ${isMe ? "text-emerald-300" : "text-emerald-500"}`}>
+                            ● {isMe ? "tú" : "conectado"}
+                          </span>
+                        ) : !claimedPlayer ? (
+                          <button
+                            onClick={() => handleClaim(player.id)}
+                            disabled={claimingId !== null}
+                            className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-zinc-900 disabled:opacity-50"
+                          >
+                            {claimingId === player.id ? "Entrando…" : "Soy yo"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))}

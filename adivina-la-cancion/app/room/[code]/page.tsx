@@ -84,6 +84,7 @@ export default function RoomPage() {
   const buzzerWinner = room?.game.buzzer_winner_player_id
     ? room.players.find((player) => player.id === room.game.buzzer_winner_player_id) ?? null
     : null;
+  const gameStarted = room?.game.status === "playing";
 
   const handleClaim = async (playerId: string) => {
     setClaimingId(playerId);
@@ -148,7 +149,7 @@ export default function RoomPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Sala</p>
           <h1 className="text-4xl font-black tracking-[0.18em] mt-1">{room.game.join_code}</h1>
           <p className="text-sm text-zinc-500 mt-2">
-            Estado: <span className="text-zinc-300">{room.game.status ?? "lobby"}</span>
+            {gameStarted ? "Partida en curso" : "Esperando a que el presentador empiece"}
           </p>
         </div>
 
@@ -170,7 +171,14 @@ export default function RoomPage() {
           </section>
         )}
 
-        {claimedPlayer && (
+        {claimedPlayer && !gameStarted && (
+          <section className="rounded-2xl border border-canvas-700 bg-canvas-900 px-5 py-6 text-center">
+            <p className="text-lg font-black text-zinc-300">Estás dentro</p>
+            <p className="text-sm text-zinc-500 mt-1">Espera a que el presentador empiece la partida.</p>
+          </section>
+        )}
+
+        {claimedPlayer && gameStarted && (
           <section className={`rounded-3xl border p-4 ${room.game.buzzer_open ? "border-emerald-700/60 bg-emerald-950/20" : "border-canvas-700 bg-canvas-900"}`}>
             {room.game.buzzer_open ? (
               <button
@@ -188,8 +196,8 @@ export default function RoomPage() {
               </div>
             ) : (
               <div className="rounded-2xl bg-canvas-800 px-4 py-6 text-center">
-                <p className="text-lg font-black text-zinc-400">Pulsador cerrado</p>
-                <p className="text-xs text-zinc-600 mt-1">Espera a que el presentador lo abra.</p>
+                <p className="text-lg font-black text-zinc-400">Esperando al presentador</p>
+                <p className="text-xs text-zinc-600 mt-1">Aquí aparecerán tus acciones cuando la ronda las necesite.</p>
               </div>
             )}
             {pressMessage && <p className="text-sm text-center mt-3 text-zinc-300">{pressMessage}</p>}

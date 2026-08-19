@@ -31,11 +31,36 @@ const WILDCARDS: Omit<Wildcard, "used">[] = [
 ];
 
 const ROUNDS: Round[] = [
-  { number: 1, name: "Lo básico", shortDesc: "5 canciones por equipo · +10 / 0", status: "pending" },
-  { number: 2, name: "Subimos nivel", shortDesc: "5 canciones · con rebote · comodines", status: "pending" },
-  { number: 3, name: "Pulsadores", shortDesc: "5 en total · quien pulsa responde · +20 / -10", status: "pending" },
-  { number: 4, name: "Cultura musical", shortDesc: "Tema libre · por turnos · +100 / -50", status: "pending" },
-  { number: 5, name: "Relámpago", shortDesc: "1 min individual · máx canciones · +100", status: "pending" },
+  {
+    number: 1,
+    name: "Lo básico",
+    shortDesc: "Reconocimiento · 5 canciones por equipo · +10 / 0",
+    status: "pending",
+  },
+  {
+    number: 2,
+    name: "Territorio",
+    shortDesc: "Categorías · estrategia · +20 / -10 · rebote",
+    status: "pending",
+  },
+  {
+    number: 3,
+    name: "Duelos",
+    shortDesc: "Enfrentamientos 1v1 · orden secreto · pulsador",
+    status: "pending",
+  },
+  {
+    number: 4,
+    name: "Cultura musical",
+    shortDesc: "Retos de conocimiento · respuestas por turnos",
+    status: "pending",
+  },
+  {
+    number: 5,
+    name: "Relámpago",
+    shortDesc: "Contrarreloj individual · máximo de aciertos · +100",
+    status: "pending",
+  },
 ];
 
 export function createGame(teamConfigs: TeamConfig[]): GameState {

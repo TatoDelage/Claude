@@ -18,12 +18,13 @@ export interface PlayerTurnResult {
   teamName: string;
   teamColor: string;
   correct: number;
-  songsShown: number; // total songs shown (correct + passed)
+  songsShown: number;
 }
 
 export interface Round5Setup {
   songs: SongEntry[];
   turnDuration: number;
+  visualDistractions: boolean;
 }
 
 export interface Round5Result {
@@ -33,7 +34,6 @@ export interface Round5Result {
   winningTeamIds: string[];
 }
 
-/** Generate a lightweight unique id for a song entry. */
 export function songId(): string {
   return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }

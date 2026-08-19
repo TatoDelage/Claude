@@ -1,5 +1,5 @@
 export const ROUND4_KEY = "adivina_round4";
-export const DEFAULT_TURN_DURATION = 15;
+export const DEFAULT_TURN_DURATION = 10;
 export const DEFAULT_WINS_TO_WIN = 3;
 export const POINTS_WIN = 100;
 

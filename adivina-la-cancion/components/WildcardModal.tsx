@@ -92,8 +92,8 @@ export default function WildcardModal({
     const leader = game.teams.find((item) => item.id === leaderId);
     const user = game.teams.find((item) => item.id === team.id);
     if (!leader || !user) return;
-    const super = user.wildcards.find((item) => item.id === "supercomodin");
-    if (!super || super.used) return;
+    const superWildcard = user.wildcards.find((item) => item.id === "supercomodin");
+    if (!superWildcard || superWildcard.used) return;
 
     const stolen = success ? Math.min(SUPER_STEAL, Math.max(0, leader.score)) : 0;
     setGame({

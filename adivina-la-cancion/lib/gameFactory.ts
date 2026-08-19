@@ -22,43 +22,43 @@ const WILDCARD_TYPES: Record<string, WildcardType> = {
 };
 
 const WILDCARDS: Omit<Wildcard, "used">[] = [
-  { id: "tiempo", name: "Tiempo", emoji: "⏱️", description: "Tiempo extra de escucha", type: WILDCARD_TYPES.tiempo },
-  { id: "silencio", name: "Silencio", emoji: "🔇", description: "Bloquea un jugador rival", type: WILDCARD_TYPES.silencio },
-  { id: "cantante", name: "Cantante", emoji: "🎤", description: "Solo acertar el artista", type: WILDCARD_TYPES.cantante },
-  { id: "robo", name: "Robo", emoji: "🎭", description: "Roba la canción del rival", type: WILDCARD_TYPES.robo },
+  { id: "tiempo", name: "Tiempo", emoji: "⏱️", description: "+10 segundos al reloj activo", type: WILDCARD_TYPES.tiempo },
+  { id: "silencio", name: "Silencio", emoji: "🔇", description: "Bloquea a un jugador rival durante este reto", type: WILDCARD_TYPES.silencio },
+  { id: "cantante", name: "Cantante", emoji: "🎤", description: "Solo hace falta acertar el artista", type: WILDCARD_TYPES.cantante },
+  { id: "robo", name: "Robo", emoji: "🎭", description: "Si el rival falla, el rebote es exclusivamente tuyo", type: WILDCARD_TYPES.robo },
   { id: "otra", name: "Otra canción", emoji: "🔄", description: "Cambia la canción sin penalización", type: WILDCARD_TYPES.otra },
-  { id: "supercomodin", name: "Supercomodín", emoji: "⭐", description: "Tararear y predecir aciertos", type: WILDCARD_TYPES.supercomodin },
+  { id: "supercomodin", name: "Supercomodín", emoji: "⭐", description: "Tararea, predice y roba hasta 40 puntos al líder", type: WILDCARD_TYPES.supercomodin },
 ];
 
 export const OFFICIAL_ROUNDS: Round[] = [
   {
     number: 1,
     name: "Lo básico",
-    shortDesc: "Reconocimiento · 5 canciones por equipo · +10 / 0",
+    shortDesc: "5 canciones por equipo · +10 / 0 · 10s + 10s",
     status: "pending",
   },
   {
     number: 2,
     name: "Territorio",
-    shortDesc: "Categorías · estrategia · +20 / -10 · rebote",
+    shortDesc: "10 territorios consumibles · +20 / -10 · rebote +10",
     status: "pending",
   },
   {
     number: 3,
     name: "Duelos",
-    shortDesc: "Enfrentamientos 1v1 · orden secreto · pulsador",
+    shortDesc: "+20 por duelo ganado · +40 al campeón · pulsador",
     status: "pending",
   },
   {
     number: 4,
     name: "Cultura musical",
-    shortDesc: "Retos de conocimiento · respuestas por turnos",
+    shortDesc: "1 vida · primero a 3 victorias · +100 al campeón",
     status: "pending",
   },
   {
     number: 5,
     name: "Relámpago",
-    shortDesc: "Contrarreloj individual · máximo de aciertos · +100",
+    shortDesc: "45s por jugador · desempate a 30s · +120 al campeón",
     status: "pending",
   },
 ];
@@ -76,6 +76,7 @@ export function createGame(teamConfigs: TeamConfig[]): GameState {
       score: 0,
       color: TEAM_COLORS[i],
       wildcards: WILDCARDS.map((w) => ({ ...w, used: false })),
+      lastWildcardRound: undefined,
       players,
     };
   });

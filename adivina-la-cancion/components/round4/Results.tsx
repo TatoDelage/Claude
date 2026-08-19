@@ -1,7 +1,7 @@
 "use client";
 
 import { Team } from "@/lib/types";
-import { Round4Result, POINTS_WIN, POINTS_LOSE } from "@/lib/round4";
+import { Round4Result, POINTS_WIN } from "@/lib/round4";
 
 const TEAM_ACCENT: Record<string, string> = {
   violet: "bg-violet-500",
@@ -26,8 +26,7 @@ export default function Results({
   teams: Team[];
   onContinue: () => void;
 }) {
-  const losingTeam = teams.find((t) => t.id === result.losingTeamId);
-  const winningTeams = teams.filter((t) => result.winningTeamIds.includes(t.id));
+  const winner = teams.find((team) => team.id === result.winnerTeamId);
 
   return (
     <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
@@ -35,69 +34,68 @@ export default function Results({
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
           Ronda 4 completada
         </p>
-        <h1 className="text-3xl font-black">Resultados</h1>
-        <p className="text-zinc-400 text-sm mt-1 truncate px-4">{result.topic}</p>
+        <h1 className="text-3xl font-black">Cultura musical</h1>
+        <p className="text-zinc-400 text-sm mt-1">
+          {result.matches.length} mini-partida{result.matches.length !== 1 ? "s" : ""}
+        </p>
       </header>
 
       <div className="flex-1 overflow-auto px-4 py-6 space-y-5 max-w-2xl mx-auto w-full">
-        {/* End reason */}
-        <div className={`p-4 rounded-2xl text-center border ${
-          result.endReason === "timeout"
-            ? "bg-amber-500/10 border-amber-500/30"
-            : "bg-red-500/10 border-red-500/20"
-        }`}>
-          <p className="text-2xl mb-1">{result.endReason === "timeout" ? "⏰" : "✗"}</p>
-          <p className="font-black text-white text-lg">
-            {result.endReason === "timeout"
-              ? `${losingTeam?.name ?? "Un equipo"} se quedó sin tiempo`
-              : `${losingTeam?.name ?? "Un equipo"} dio una respuesta no válida`}
-          </p>
-        </div>
-
-        {/* Score changes */}
-        <section
-          className="grid gap-3"
-          style={{ gridTemplateColumns: `repeat(${Math.min(teams.length, 2)}, 1fr)` }}
-        >
-          {winningTeams.map((team) => (
-            <div
-              key={team.id}
-              className={`rounded-2xl p-4 text-center ${TEAM_ACCENT[team.color]}`}
-            >
-              <p className="text-xs font-bold text-white/80 mb-1">🏆 Ganador</p>
-              <p className="text-sm font-bold text-white/90 truncate">{team.name}</p>
-              <p className="text-4xl font-black mt-1 text-white">+{POINTS_WIN}</p>
-              <p className="text-xs text-white/60 mt-0.5">pts esta ronda</p>
-            </div>
-          ))}
-          {losingTeam && (
-            <div className="rounded-2xl p-4 text-center bg-canvas-900 border border-canvas-700">
-              <p className="text-xs font-bold text-zinc-500 mb-1">Perdedor</p>
-              <p className={`text-sm font-bold truncate ${TEAM_TEXT[losingTeam.color]}`}>{losingTeam.name}</p>
-              <p className="text-4xl font-black mt-1 text-red-400">{POINTS_LOSE}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">pts esta ronda</p>
-            </div>
-          )}
-        </section>
-
-        {/* Used answers */}
-        {result.usedAnswers.length > 0 && (
-          <section className="bg-canvas-900 border border-canvas-700 rounded-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-canvas-700">
-              <p className="text-sm font-bold text-zinc-300">
-                Respuestas válidas ({result.usedAnswers.length})
-              </p>
-            </div>
-            <div className="divide-y divide-canvas-700/40">
-              {result.usedAnswers.map((ans, i) => (
-                <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                  <span className="text-zinc-600 text-xs font-mono w-5 text-right">{i + 1}.</span>
-                  <span className="text-sm text-zinc-300">{ans}</span>
-                </div>
-              ))}
-            </div>
+        {winner && (
+          <section className={`rounded-2xl p-6 text-center ${TEAM_ACCENT[winner.color]}`}>
+            <p className="text-4xl mb-2">🏆</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/70">Campeón de la ronda</p>
+            <p className="text-3xl font-black text-white mt-1">{winner.name}</p>
+            <p className="text-5xl font-black text-white mt-3">+{POINTS_WIN}</p>
+            <p className="text-xs text-white/60 mt-1">pts al marcador general</p>
           </section>
         )}
+
+        <section className="grid grid-cols-2 gap-3">
+          {teams
+            .slice()
+            .sort((a, b) => (result.victoriesByTeam[b.id] ?? 0) - (result.victoriesByTeam[a.id] ?? 0))
+            .map((team) => {
+              const wins = result.victoriesByTeam[team.id] ?? 0;
+              return (
+                <div key={team.id} className="rounded-2xl p-4 text-center bg-canvas-900 border border-canvas-700">
+                  <p className={`text-sm font-black truncate ${TEAM_TEXT[team.color]}`}>{team.name}</p>
+                  <p className="text-4xl font-black text-white mt-2">{wins}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">victoria{wins !== 1 ? "s" : ""}</p>
+                  <div className="mt-2 flex justify-center gap-1">
+                    {Array.from({ length: result.winsToWin }).map((_, index) => (
+                      <span key={index} className={index < wins ? "text-amber-300" : "text-zinc-700"}>★</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+        </section>
+
+        <section className="bg-canvas-900 border border-canvas-700 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-canvas-700">
+            <p className="text-sm font-bold text-zinc-300">Historial de mini-partidas</p>
+          </div>
+          <div className="divide-y divide-canvas-700/40">
+            {result.matches.map((match) => {
+              const matchWinner = teams.find((team) => team.id === match.winnerTeamId);
+              return (
+                <div key={match.matchNumber} className="px-4 py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs text-zinc-600">Partida {match.matchNumber}</p>
+                    <p className="text-sm text-zinc-300 truncate">{match.topic}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className={`text-sm font-black ${matchWinner ? TEAM_TEXT[matchWinner.color] : "text-white"}`}>
+                      {matchWinner?.name ?? "Ganador"}
+                    </p>
+                    <p className="text-[10px] text-zinc-600">{match.usedAnswers.length} respuestas válidas</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         <button
           onClick={onContinue}

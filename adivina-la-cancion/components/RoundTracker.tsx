@@ -6,21 +6,21 @@ const STATUS_STYLES = {
   completed: {
     circle: "bg-canvas-700 text-zinc-400",
     line: "bg-canvas-700",
-    card: "opacity-50",
-    badge: "bg-canvas-700 text-zinc-400",
+    card: "opacity-55",
+    badge: "bg-canvas-700/70 text-zinc-400",
     badgeText: "Completada",
   },
   active: {
-    circle: "bg-white text-zinc-900 ring-4 ring-white/20",
+    circle: "bg-gold-300 text-canvas-950 ring-4 ring-gold-300/10 shadow-[0_0_24px_rgba(233,198,108,.2)]",
     line: "bg-canvas-700",
-    card: "opacity-100",
-    badge: "bg-white/10 text-zinc-300",
+    card: "opacity-100 border-gold-300/25 bg-gold-300/[0.045]",
+    badge: "bg-gold-300/10 text-gold-300 border border-gold-300/20",
     badgeText: "En curso",
   },
   pending: {
     circle: "bg-canvas-800 text-zinc-600 border border-canvas-700",
     line: "bg-canvas-800",
-    card: "opacity-40",
+    card: "opacity-35",
     badge: "bg-canvas-800 text-zinc-600",
     badgeText: "Pendiente",
   },
@@ -29,45 +29,27 @@ const STATUS_STYLES = {
 export default function RoundTracker({ rounds }: { rounds: Round[] }) {
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-4">
-        Rondas
-      </h2>
+      <h2 className="game-kicker mb-4">La partida</h2>
 
       <div className="space-y-2">
         {rounds.map((round, i) => {
           const s = STATUS_STYLES[round.status];
           return (
             <div key={round.number} className="flex gap-3 items-start">
-              {/* Timeline indicator */}
               <div className="flex flex-col items-center pt-1">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 transition-all ${s.circle}`}
-                >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 transition-all ${s.circle}`}>
                   {round.status === "completed" ? "✓" : round.number}
                 </div>
-                {i < rounds.length - 1 && (
-                  <div className={`w-0.5 h-3 mt-1 ${s.line}`} />
-                )}
+                {i < rounds.length - 1 && <div className={`w-0.5 h-4 mt-1 ${s.line}`} />}
               </div>
 
-              {/* Card — display only, no click */}
-              <div
-                className={`flex-1 bg-canvas-900 border border-canvas-700 rounded-xl px-4 py-3 transition-all ${s.card}`}
-              >
-                <div className="flex items-center justify-between gap-2">
+              <div className={`flex-1 border border-canvas-700 rounded-2xl px-4 py-3.5 transition-all bg-canvas-900 ${s.card}`}>
+                <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-bold text-sm text-white truncate">
-                      Ronda {round.number} — {round.name}
-                    </p>
-                    <p className="text-xs text-zinc-500 mt-0.5 truncate">
-                      {round.shortDesc}
-                    </p>
+                    <p className="font-black text-sm text-cream-50 truncate">{round.name}</p>
+                    <p className="text-xs game-muted mt-0.5 truncate">{round.shortDesc}</p>
                   </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${s.badge}`}
-                  >
-                    {s.badgeText}
-                  </span>
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full flex-shrink-0 ${s.badge}`}>{s.badgeText}</span>
                 </div>
               </div>
             </div>

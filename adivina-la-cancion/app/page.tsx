@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/context/GameContext";
 import { createGame, TeamConfig } from "@/lib/gameFactory";
+import { createRemoteGame } from "@/lib/supabaseRest";
 
 const TEAM_COUNT_OPTIONS = [2, 3, 4] as const;
 
@@ -66,6 +67,8 @@ export default function SetupPage() {
   const [drafts, setDrafts] = useState<TeamDraft[]>(() =>
     Array.from({ length: 4 }, initTeamDraft)
   );
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const update = (i: number, patch: Partial<TeamDraft>) =>
     setDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -88,7 +91,12 @@ export default function SetupPage() {
     update(teamIdx, { playerNames: names });
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    if (starting) return;
+
+    setStarting(true);
+    setStartError(null);
+
     const configs: TeamConfig[] = drafts.slice(0, teamCount).map((d, i) => ({
       name: d.name.trim() || DEFAULT_TEAM_NAMES[i],
       players: d.playerNames.map((n, j) => ({
@@ -96,15 +104,24 @@ export default function SetupPage() {
         isCaptain: j === d.captainIndex,
       })),
     }));
-    setGame(createGame(configs));
-    router.push("/game");
+
+    try {
+      const remoteGame = await createRemoteGame(configs);
+      const localGame = createGame(configs);
+      localStorage.setItem("adivina_remote_game_id", remoteGame.id);
+      localStorage.setItem("adivina_join_code", remoteGame.join_code);
+      setGame(localGame);
+      router.push("/game");
+    } catch (error) {
+      setStartError(error instanceof Error ? error.message : "No se pudo crear la partida");
+      setStarting(false);
+    }
   };
 
   const draft = drafts[activeTeam];
 
   return (
     <main className="min-h-screen bg-canvas-950 text-white flex flex-col">
-      {/* Title */}
       <div className="text-center pt-10 pb-5 px-4">
         <div className="text-4xl mb-2">🎵</div>
         <h1 className="text-3xl font-black tracking-tight">
@@ -114,8 +131,6 @@ export default function SetupPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-4 pb-10 space-y-6 max-w-sm mx-auto w-full">
-
-        {/* ── 1. Número de equipos ── */}
         <section>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">
             Número de equipos
@@ -137,7 +152,6 @@ export default function SetupPage() {
           </div>
         </section>
 
-        {/* ── 2. Tabs de equipo ── */}
         <div className="flex gap-2">
           {Array.from({ length: teamCount }).map((_, i) => (
             <button
@@ -154,11 +168,9 @@ export default function SetupPage() {
           ))}
         </div>
 
-        {/* ── 3. Configuración del equipo activo ── */}
         <section
           className={`border rounded-2xl p-4 space-y-5 ${TEAM_BG[activeTeam]} ${TEAM_BORDER[activeTeam]}`}
         >
-          {/* Nombre del equipo */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-2">
               Nombre del equipo
@@ -173,7 +185,6 @@ export default function SetupPage() {
             />
           </div>
 
-          {/* Número de integrantes */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">
               Número de integrantes
@@ -198,15 +209,12 @@ export default function SetupPage() {
             </div>
           </div>
 
-          {/* Jugadores + Capitán */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
                 Jugadores
               </p>
-              <p className="text-xs text-zinc-600">
-                👑 = Capitán
-              </p>
+              <p className="text-xs text-zinc-600">👑 = Capitán</p>
             </div>
             <div className="space-y-2">
               {draft.playerNames.map((name, j) => (
@@ -243,12 +251,18 @@ export default function SetupPage() {
           </div>
         </section>
 
-        {/* ── 4. Botón de inicio ── */}
+        {startError && (
+          <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+            {startError}
+          </div>
+        )}
+
         <button
           onClick={handleStart}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 font-black shadow-lg shadow-black/20"
+          disabled={starting}
+          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-wait"
         >
-          ¡Empezar la partida! 🎮
+          {starting ? "Creando partida..." : "¡Empezar la partida! 🎮"}
         </button>
 
         <p className="text-zinc-600 text-xs text-center pb-2">

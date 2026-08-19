@@ -12,7 +12,8 @@ import VictoryScreen from "@/components/VictoryScreen";
 import HostLobby from "@/components/HostLobby";
 
 const ROUND_ROUTES: Record<number, string> = { 1: "/round1", 2: "/round2", 3: "/round3", 4: "/round4", 5: "/round5" };
-const ROUND_LABELS: Record<number, string> = { 1: "Jugar Ronda 1 →", 2: "Jugar Ronda 2 →", 3: "Jugar Ronda 3 →", 4: "Jugar Ronda 4 →", 5: "Jugar Ronda 5 →" };
+const ROUND_LABELS: Record<number, string> = { 1: "Entrar en Lo básico →", 2: "Entrar en Territorio →", 3: "Entrar en Duelos →", 4: "Entrar en Cultura musical →", 5: "Entrar en Relámpago →" };
+const ROUND_ICONS: Record<number, string> = { 1: "🎵", 2: "🧭", 3: "⚔️", 4: "🧠", 5: "⚡" };
 const DEV_KEY = "adivina_dev";
 
 export default function GameContent() {
@@ -53,33 +54,54 @@ export default function GameContent() {
   const inLobby = game.currentRound === 0;
 
   return (
-    <main className="min-h-screen bg-canvas-950 text-white">
-      <header className="sticky top-0 z-10 bg-canvas-950/90 backdrop-blur border-b border-canvas-700/60 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-black text-white">🎵 Adivina la Canción</span>
-          {inLobby ? <span className="ml-1 text-xs text-zinc-500">Lobby</span> : activeRound ? <span className="ml-1 text-xs text-zinc-500">Ronda {activeRound.number} — {activeRound.name}</span> : null}
-          {devMode && <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 tracking-wide">DEV</span>}
+    <main className="game-stage min-h-screen text-cream-50">
+      <header className="sticky top-0 z-10 bg-canvas-950/80 backdrop-blur-xl border-b border-canvas-700/45 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-black text-cream-50 truncate">🎵 Adivina la Canción</span>
+          {inLobby ? <span className="ml-1 text-xs game-muted">Lobby</span> : activeRound ? <span className="ml-1 text-xs game-muted truncate">R{activeRound.number} · {activeRound.name}</span> : null}
+          {devMode && <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-gold-300/10 text-gold-300 border border-gold-300/20 tracking-wide">DEV</span>}
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={toggleDevMode} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${devMode ? "text-amber-400 hover:text-amber-300" : "text-zinc-700 hover:text-zinc-500"}`}>{devMode ? "⚙ dev on" : "⚙ dev"}</button>
-          {!inLobby && <button onClick={() => setShowVictory(true)} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Terminar</button>}
+          <button onClick={toggleDevMode} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${devMode ? "text-gold-300" : "text-zinc-700 hover:text-zinc-500"}`}>{devMode ? "⚙ dev on" : "⚙ dev"}</button>
+          {!inLobby && <button onClick={() => setShowVictory(true)} className="text-xs text-zinc-600 hover:text-cream-200 transition-colors">Terminar</button>}
         </div>
       </header>
 
       {inLobby ? <HostLobby onStarted={handleStartGame} /> : (
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
-          {activeRound && <div className="bg-canvas-900 border border-zinc-700/60 rounded-2xl px-4 py-4 flex items-center justify-between gap-3">
-            <div className="min-w-0"><p className="text-xs text-zinc-500 uppercase tracking-widest">En curso</p><p className="font-black text-white truncate">Ronda {activeRound.number} — {activeRound.name}</p><p className="text-xs text-zinc-500 mt-0.5 truncate">{activeRound.shortDesc}</p></div>
-            {activeRoute ? <button onClick={() => router.push(activeRoute)} className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-100 active:scale-95 text-zinc-900 text-sm font-bold transition-all">{ROUND_LABELS[activeRound.number]}</button> : <span className="flex-shrink-0 text-xs text-zinc-600 italic">Próximamente</span>}
-          </div>}
+        <div className="max-w-3xl mx-auto px-4 py-8 space-y-9">
+          {activeRound && (
+            <section className="game-panel rounded-[2rem] p-5 sm:p-6 flex items-center justify-between gap-4 overflow-hidden relative">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-300/40 to-transparent" />
+              <div className="min-w-0 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gold-300/[0.08] border border-gold-300/15 flex items-center justify-center text-2xl flex-shrink-0">{ROUND_ICONS[activeRound.number]}</div>
+                <div className="min-w-0">
+                  <p className="game-kicker">En curso · Ronda {activeRound.number}</p>
+                  <p className="game-title text-2xl truncate mt-1">{activeRound.name}</p>
+                  <p className="text-xs game-muted mt-1 truncate">{activeRound.shortDesc}</p>
+                </div>
+              </div>
+              {activeRoute ? (
+                <button onClick={() => router.push(activeRoute)} className="game-primary flex-shrink-0 px-4 py-3 rounded-2xl text-xs sm:text-sm font-black transition-all">{ROUND_LABELS[activeRound.number]}</button>
+              ) : <span className="flex-shrink-0 text-xs text-zinc-600 italic">Próximamente</span>}
+            </section>
+          )}
 
-          {devMode && <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3 space-y-2">
-            <p className="text-xs font-bold text-amber-400/70 uppercase tracking-widest">Saltar a ronda (dev)</p>
-            <div className="flex flex-wrap gap-2">{Object.entries(ROUND_ROUTES).map(([num, route]) => { const n = Number(num); const round = game.rounds.find((r) => r.number === n); const isCurrent = game.currentRound === n; return <button key={n} onClick={() => jumpToRound(n)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${isCurrent ? "bg-amber-500/30 text-amber-300 border border-amber-500/40" : "bg-canvas-800 text-zinc-400 hover:bg-canvas-700 hover:text-zinc-200"}`}>R{n} — {round?.name ?? route}</button>; })}</div>
-          </div>}
+          {devMode && (
+            <div className="bg-gold-300/[0.035] border border-gold-300/15 rounded-2xl px-4 py-3 space-y-2">
+              <p className="text-xs font-bold text-gold-300/70 uppercase tracking-widest">Saltar a ronda · dev</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(ROUND_ROUTES).map(([num, route]) => {
+                  const n = Number(num);
+                  const round = game.rounds.find((r) => r.number === n);
+                  const isCurrent = game.currentRound === n;
+                  return <button key={n} onClick={() => jumpToRound(n)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${isCurrent ? "bg-gold-300/15 text-gold-300 border border-gold-300/25" : "bg-canvas-800 text-zinc-400 hover:bg-canvas-700 hover:text-cream-100"}`}>R{n} · {round?.name ?? route}</button>;
+                })}
+              </div>
+            </div>
+          )}
 
           <Scoreboard teams={game.teams} onWildcard={(teamId) => setWildcardTeamId(teamId)} />
-          <div className="border-t border-canvas-700/60" />
+          <div className="border-t border-canvas-700/40" />
           <RoundTracker rounds={game.rounds} />
           <div className="h-6" />
         </div>

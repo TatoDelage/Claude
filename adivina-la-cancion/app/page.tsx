@@ -110,6 +110,9 @@ export default function SetupPage() {
       const localGame = createGame(configs);
       localStorage.setItem("adivina_remote_game_id", remoteGame.id);
       localStorage.setItem("adivina_join_code", remoteGame.join_code);
+      if (remoteGame.host_token) {
+        localStorage.setItem("adivina_host_token", remoteGame.host_token);
+      }
       setGame(localGame);
       router.push("/game");
     } catch (error) {

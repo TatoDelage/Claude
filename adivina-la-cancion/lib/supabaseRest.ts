@@ -31,9 +31,14 @@ function generateJoinCode(length = 6) {
 export interface RemoteGame {
   id: string;
   join_code: string;
+  host_token?: string;
   status?: string;
   mode?: string;
   current_round?: number;
+  buzzer_open?: boolean;
+  buzzer_winner_player_id?: string | null;
+  buzzer_opened_at?: string | null;
+  buzzer_pressed_at?: string | null;
   settings?: {
     teamCount?: number;
     teamNames?: string[];
@@ -64,16 +69,26 @@ export interface ClaimedPlayer {
   is_presenter: boolean;
 }
 
+export interface BuzzerPressResult {
+  won: boolean;
+  winner_player_id: string | null;
+  winner_name: string | null;
+  winner_team_number: number | null;
+  pressed_at: string | null;
+}
+
 export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<RemoteGame> {
   assertConfig();
 
   const joinCode = generateJoinCode();
+  const hostToken = crypto.randomUUID();
 
   const gameResponse = await fetch(`${SUPABASE_URL}/rest/v1/games`, {
     method: "POST",
     headers: headers({ Prefer: "return=representation" }),
     body: JSON.stringify({
       join_code: joinCode,
+      host_token: hostToken,
       mode: "local",
       status: "lobby",
       current_round: 0,
@@ -116,7 +131,7 @@ export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<Remot
     }
   }
 
-  return game;
+  return { ...game, host_token: hostToken };
 }
 
 export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | null> {
@@ -124,7 +139,7 @@ export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | nu
   const normalized = code.trim().toUpperCase();
 
   const gameResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/games?join_code=eq.${encodeURIComponent(normalized)}&select=id,join_code,status,mode,current_round,settings&limit=1`,
+    `${SUPABASE_URL}/rest/v1/games?join_code=eq.${encodeURIComponent(normalized)}&select=id,join_code,status,mode,current_round,settings,buzzer_open,buzzer_winner_player_id,buzzer_opened_at,buzzer_pressed_at&limit=1`,
     { headers: headers(), cache: "no-store" }
   );
 
@@ -178,4 +193,48 @@ export async function claimRemotePlayer(
   const player = rows[0];
   if (!player) throw new Error("No se pudo identificar al jugador");
   return player;
+}
+
+export async function openRemoteBuzzer(code: string, hostToken: string) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/open_game_buzzer`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ p_join_code: code.trim().toUpperCase(), p_host_token: hostToken }),
+  });
+  if (!response.ok) throw new Error("No se pudo abrir el pulsador");
+}
+
+export async function closeRemoteBuzzer(code: string, hostToken: string) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/close_game_buzzer`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ p_join_code: code.trim().toUpperCase(), p_host_token: hostToken }),
+  });
+  if (!response.ok) throw new Error("No se pudo cerrar el pulsador");
+}
+
+export async function pressRemoteBuzzer(
+  code: string,
+  playerId: string,
+  deviceToken: string
+): Promise<BuzzerPressResult> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/press_game_buzzer`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      p_join_code: code.trim().toUpperCase(),
+      p_player_id: playerId,
+      p_device_token: deviceToken,
+    }),
+  });
+
+  if (!response.ok) throw new Error("No se pudo registrar el pulsador");
+  const rows = (await response.json()) as BuzzerPressResult[];
+  return rows[0] ?? {
+    won: false,
+    winner_player_id: null,
+    winner_name: null,
+    winner_team_number: null,
+    pressed_at: null,
+  };
 }

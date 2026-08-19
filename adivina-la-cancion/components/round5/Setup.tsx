@@ -29,17 +29,16 @@ export default function Setup({
 }) {
   const [songs, setSongs] = useState<SongEntry[]>(emptyBank);
   const [turnDuration, setTurnDuration] = useState(TURN_DURATION);
+  const [visualDistractions, setVisualDistractions] = useState(true);
 
   const updateSong = (id: string, field: "title" | "artist", value: string) => {
-    setSongs((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+    setSongs((prev) => prev.map((song) => (song.id === id ? { ...song, [field]: value } : song)));
   };
 
-  const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
-  // Title is always required; artist is optional in R5 (Cantante wildcard not available)
-  const allFilled = songs.every((s) => s.title.trim() !== "");
+  const totalPlayers = teams.reduce((sum, team) => sum + team.players.length, 0);
+  const allFilled = songs.every((song) => song.title.trim() !== "");
   const canStart = allFilled && totalPlayers > 0;
-
-  const teamsWithNoPlayers = teams.filter((t) => t.players.length === 0);
+  const teamsWithNoPlayers = teams.filter((team) => team.players.length === 0);
 
   return (
     <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
@@ -54,12 +53,11 @@ export default function Setup({
       </header>
 
       <div className="flex-1 overflow-auto px-4 py-5 space-y-6 max-w-2xl mx-auto w-full">
-        {/* Mechanic reminder */}
         <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Mecánica</p>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Cada jugador tiene 1 minuto. Las canciones del banco salen una a una. El presentador pulsa
-            «Acierto» o «Paso». Sin penalización por fallar o pasar. Al final el equipo con más aciertos
+            Cada jugador tiene su turno. Las canciones del banco salen una a una y el presentador pulsa
+            «Acierto» o «Paso». No hay penalización por fallar o pasar. Al final, el equipo con más aciertos
             gana +{POINTS_WIN} pts.
           </p>
           <div className="flex gap-3 text-sm pt-1">
@@ -82,7 +80,34 @@ export default function Setup({
           </p>
         </section>
 
-        {/* Timer config */}
+        <section className={`rounded-2xl border p-4 space-y-3 ${visualDistractions ? "bg-amber-500/10 border-amber-500/30" : "bg-canvas-900 border-canvas-700"}`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👀</span>
+              <div>
+                <p className={`text-sm font-black ${visualDistractions ? "text-amber-300" : "text-zinc-300"}`}>Distracciones visuales</p>
+                <p className="text-[11px] text-zinc-500">Pensado para partidas presenciales</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setVisualDistractions((value) => !value)}
+              className={`px-4 py-2 rounded-xl text-xs font-black border transition-all active:scale-95 ${visualDistractions ? "bg-amber-400 text-zinc-950 border-amber-300" : "bg-canvas-800 text-zinc-400 border-canvas-700"}`}
+            >
+              {visualDistractions ? "ACTIVADAS" : "DESACTIVADAS"}
+            </button>
+          </div>
+          {visualDistractions && (
+            <>
+              <p className="text-xs text-amber-100/70 leading-relaxed">
+                Mientras un jugador está jugando, los contrincantes pueden intentar distraerlo visualmente: gestos, bailes y movimientos.
+              </p>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                No se puede tocar al jugador o al dispositivo, tapar la pantalla, quitar objetos ni impedir físicamente que juegue.
+              </p>
+            </>
+          )}
+        </section>
+
         <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Tiempo por jugador</p>
           <div className="flex items-center justify-between gap-4">
@@ -92,30 +117,27 @@ export default function Setup({
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => setTurnDuration((v) => Math.max(MIN_TURN_DURATION, v - 15))}
+                onClick={() => setTurnDuration((value) => Math.max(MIN_TURN_DURATION, value - 15))}
                 className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
               >
                 −
               </button>
               <span className="w-14 text-center text-white font-black tabular-nums">{turnDuration}s</span>
               <button
-                onClick={() => setTurnDuration((v) => Math.min(MAX_TURN_DURATION, v + 15))}
+                onClick={() => setTurnDuration((value) => Math.min(MAX_TURN_DURATION, value + 15))}
                 className="w-8 h-8 rounded-lg bg-canvas-800 hover:bg-canvas-700 text-white font-bold text-lg transition-colors active:scale-95"
               >
                 +
               </button>
             </div>
           </div>
-          {/* Time estimate */}
           {totalPlayers > 0 && (
             <div className="bg-canvas-800 rounded-xl px-4 py-3 flex items-center gap-3">
               <span className="text-xl">⏱</span>
               <div>
                 <p className="text-sm font-bold text-white">
-                  {totalPlayers} jugador{totalPlayers !== 1 ? "es" : ""} × {turnDuration}s
-                  {" = "}
-                  <span className="text-zinc-300">{formatDuration(totalPlayers * turnDuration)}</span>
-                  {" "}aproximadamente
+                  {totalPlayers} jugador{totalPlayers !== 1 ? "es" : ""} × {turnDuration}s ={" "}
+                  <span className="text-zinc-300">{formatDuration(totalPlayers * turnDuration)}</span> aproximadamente
                 </p>
                 <p className="text-xs text-zinc-600 mt-0.5">sin contar el tiempo de recarga del banco</p>
               </div>
@@ -123,63 +145,56 @@ export default function Setup({
           )}
         </section>
 
-        {/* Players warning */}
         {teamsWithNoPlayers.length > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 space-y-1">
             <p className="text-xs font-bold text-amber-400">⚠ Equipos sin jugadores registrados</p>
             <p className="text-xs text-amber-300/70">
-              {teamsWithNoPlayers.map((t) => t.name).join(", ")} — estos equipos no tendrán turno
+              {teamsWithNoPlayers.map((team) => team.name).join(", ")} — estos equipos no tendrán turno
             </p>
           </div>
         )}
+
         {totalPlayers === 0 && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-3">
-            <p className="text-xs font-bold text-red-400">
-              ✗ No hay jugadores registrados en ningún equipo
-            </p>
+            <p className="text-xs font-bold text-red-400">✗ No hay jugadores registrados en ningún equipo</p>
             <p className="text-xs text-red-300/70 mt-0.5">
               Vuelve al marcador y añade jugadores antes de iniciar esta ronda
             </p>
           </div>
         )}
 
-        {/* Song bank */}
         <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              Banco de canciones
-            </p>
-            <span className="text-xs text-zinc-600">{songs.filter((s) => s.title.trim()).length}/{BANK_SIZE}</span>
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Banco de canciones</p>
+            <span className="text-xs text-zinc-600">{songs.filter((song) => song.title.trim()).length}/{BANK_SIZE}</span>
           </div>
 
           <div className="space-y-3">
-            {songs.map((song, i) => {
+            {songs.map((song, index) => {
               const titleMissing = song.artist.trim() !== "" && song.title.trim() === "";
               return (
                 <div key={song.id} className="space-y-1.5">
-                  <p className="text-xs text-zinc-600 font-medium">#{i + 1}</p>
+                  <p className="text-xs text-zinc-600 font-medium">#{index + 1}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-0.5">
                       <input
                         type="text"
                         placeholder="Título *"
                         value={song.title}
-                        onChange={(e) => updateSong(song.id, "title", e.target.value)}
+                        onChange={(event) => updateSong(song.id, "title", event.target.value)}
                         className={`w-full bg-canvas-800/80 border rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none transition-colors ${
                           titleMissing
                             ? "border-red-500/60 focus:border-red-400"
                             : "border-canvas-700/60 focus:border-zinc-500"
                         }`}
                       />
-                      {titleMissing && (
-                        <p className="text-[10px] text-red-400 font-medium px-1">Título obligatorio</p>
-                      )}
+                      {titleMissing && <p className="text-[10px] text-red-400 font-medium px-1">Título obligatorio</p>}
                     </div>
                     <input
                       type="text"
                       placeholder="Artista"
                       value={song.artist}
-                      onChange={(e) => updateSong(song.id, "artist", e.target.value)}
+                      onChange={(event) => updateSong(song.id, "artist", event.target.value)}
                       className="bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
                     />
                   </div>
@@ -190,7 +205,7 @@ export default function Setup({
         </section>
 
         <button
-          onClick={() => onStart({ songs: songs.filter((s) => s.title.trim()), turnDuration })}
+          onClick={() => onStart({ songs: songs.filter((song) => song.title.trim()), turnDuration, visualDistractions })}
           disabled={!canStart}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             canStart

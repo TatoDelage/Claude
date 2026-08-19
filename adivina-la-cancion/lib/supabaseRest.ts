@@ -31,6 +31,29 @@ function generateJoinCode(length = 6) {
 export interface RemoteGame {
   id: string;
   join_code: string;
+  status?: string;
+  mode?: string;
+  current_round?: number;
+  settings?: {
+    teamCount?: number;
+    teamNames?: string[];
+  };
+}
+
+export interface RemoteGamePlayer {
+  id: string;
+  game_id: string;
+  display_name: string;
+  team_number: number | null;
+  is_captain: boolean;
+  is_presenter: boolean;
+  device_active: boolean;
+  sort_order: number;
+}
+
+export interface RemoteRoom {
+  game: RemoteGame;
+  players: RemoteGamePlayer[];
 }
 
 export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<RemoteGame> {
@@ -46,7 +69,10 @@ export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<Remot
       mode: "local",
       status: "lobby",
       current_round: 0,
-      settings: { teamCount: teamConfigs.length },
+      settings: {
+        teamCount: teamConfigs.length,
+        teamNames: teamConfigs.map((team) => team.name),
+      },
     }),
   });
 
@@ -83,4 +109,34 @@ export async function createRemoteGame(teamConfigs: TeamConfig[]): Promise<Remot
   }
 
   return game;
+}
+
+export async function getRemoteRoomByCode(code: string): Promise<RemoteRoom | null> {
+  assertConfig();
+  const normalized = code.trim().toUpperCase();
+
+  const gameResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/games?join_code=eq.${encodeURIComponent(normalized)}&select=id,join_code,status,mode,current_round,settings&limit=1`,
+    { headers: headers(), cache: "no-store" }
+  );
+
+  if (!gameResponse.ok) {
+    throw new Error(`No se pudo buscar la partida (${gameResponse.status})`);
+  }
+
+  const games = (await gameResponse.json()) as RemoteGame[];
+  const game = games[0];
+  if (!game) return null;
+
+  const playersResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/game_players?game_id=eq.${game.id}&select=id,game_id,display_name,team_number,is_captain,is_presenter,device_active,sort_order&order=team_number.asc,sort_order.asc`,
+    { headers: headers(), cache: "no-store" }
+  );
+
+  if (!playersResponse.ok) {
+    throw new Error(`No se pudieron cargar los jugadores (${playersResponse.status})`);
+  }
+
+  const players = (await playersResponse.json()) as RemoteGamePlayer[];
+  return { game, players };
 }

@@ -9,7 +9,7 @@ import { availableCount, teamWildcardLocked } from "@/lib/wildcardUtils";
 import { useGame } from "@/context/GameContext";
 import Tiebreak from "@/components/round5/Tiebreak";
 
-const DISABLED = ["silencio", "robo", "supercomodin"];
+const DISABLED = ["silencio", "robo", "otra", "supercomodin"];
 const TEAM_COLOR: Record<string, { badge: string; text: string; ring: string }> = {
   violet: { badge: "bg-violet-500", text: "text-violet-300", ring: "stroke-violet-500" },
   amber: { badge: "bg-amber-500", text: "text-amber-300", ring: "stroke-amber-500" },
@@ -40,9 +40,9 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
   const [wildcardOpen, setWildcardOpen] = useState(false);
   const [cantanteMode, setCantanteMode] = useState(false);
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
-  const snap = useRef({ playerIndex: 0, turnCorrect: 0, shownIds: [] as string[], bank: [] as SongEntry[], results: [] as PlayerTurnResult[] });
+  const snap = useRef({ playerIndex: 0, turnCorrect: 0, shownIds: [] as string[], results: [] as PlayerTurnResult[] });
 
-  snap.current = { playerIndex, turnCorrect, shownIds, bank, results };
+  snap.current = { playerIndex, turnCorrect, shownIds, results };
   const current = order[playerIndex];
   const song = bank[songIndex];
   const color = current ? TEAM_COLOR[current.teamColor] : TEAM_COLOR.violet;
@@ -71,9 +71,13 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
     if (!player) return;
     const turnResult: PlayerTurnResult = { playerId: player.id, playerName: player.name, teamId: player.teamId, teamName: player.teamName, teamColor: player.teamColor, correct: snap.current.turnCorrect, songsShown: snap.current.shownIds.length };
     const nextResults = [...snap.current.results, turnResult];
-    const shown = new Set(snap.current.shownIds);
-    const remaining = snap.current.bank.filter((item) => !shown.has(item.id));
-    setResults(nextResults); setBank(remaining.length ? remaining : shuffle(setup.songs)); setSongIndex(0); setTurnCorrect(0); setShownIds([]); setCantanteMode(false); setActiveEffect(null);
+    setResults(nextResults);
+    setBank(shuffle(setup.songs));
+    setSongIndex(0);
+    setTurnCorrect(0);
+    setShownIds([]);
+    setCantanteMode(false);
+    setActiveEffect(null);
     if (index + 1 >= order.length) evaluateRound(nextResults); else setPhase("between");
   };
 
@@ -90,12 +94,10 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
   if (current && phase === "active") runningTotals[current.teamId] = (runningTotals[current.teamId] ?? 0) + turnCorrect;
 
   const handleWildcard = (effect: WildcardEffect) => {
-    let resume = true;
     if (effect.wildcardId === "tiempo") { const seconds = effect.tiempo?.extraSeconds ?? 10; timer.addTime(seconds); setActiveEffect(`⏱ +${seconds}s`); }
     if (effect.wildcardId === "cantante") { setCantanteMode(true); setActiveEffect("🎤 Solo artista necesario"); }
-    if (effect.wildcardId === "otra") { const lastSong = songIndex + 1 >= bank.length; advanceSong(false); setActiveEffect("🔄 Canción cambiada"); resume = !lastSong; }
     setWildcardOpen(false);
-    if (resume) timer.resume(finishTurn);
+    timer.resume(finishTurn);
   };
 
   if (!order.length) return <div className="min-h-screen bg-canvas-950 text-white flex items-center justify-center">Sin jugadores registrados.</div>;
@@ -112,9 +114,9 @@ export default function Play({ setup, teams, onComplete }: { setup: Round5Setup;
     {activeEffect && <div className="mx-4 mt-3 rounded-xl bg-amber-500/10 border border-amber-500/25 p-2 text-center text-xs font-black text-amber-300">{activeEffect}</div>}
 
     <div className="flex-1 w-full max-w-md mx-auto px-4 py-6 flex flex-col justify-center gap-5">
-      {phase === "ready" && <><div className="text-center"><p className={`font-black ${color.text}`}>{current.teamName}</p><h1 className="text-4xl font-black mt-2">{current.name}</h1><p className="text-zinc-500 mt-2">{bank.length} canciones en el banco</p></div><button onClick={startTurn} className="w-full py-5 rounded-2xl bg-white text-zinc-900 font-black text-xl">▶ Empezar turno</button></>}
+      {phase === "ready" && <><div className="text-center"><p className={`font-black ${color.text}`}>{current.teamName}</p><h1 className="text-4xl font-black mt-2">{current.name}</h1><p className="text-zinc-500 mt-2">Banco nuevo · {bank.length} canciones</p></div><button onClick={startTurn} className="w-full py-5 rounded-2xl bg-white text-zinc-900 font-black text-xl">▶ Empezar turno</button></>}
       {phase === "active" && <><div className="flex justify-between"><div><p className={`font-black ${color.text}`}>{current.name}</p><p className="text-xs text-zinc-500">{current.teamName}</p></div><p className="text-3xl font-black text-emerald-400">{turnCorrect}</p></div><div className="flex justify-center"><TimerRing remaining={timer.remaining} progress={timer.progress} color={color.ring}/></div><div className="rounded-2xl bg-canvas-900 border border-canvas-700 p-5 text-center">{cantanteMode && <p className="text-xs text-amber-400 font-black mb-2">🎤 SOLO ARTISTA</p>}<p className={`text-2xl font-black ${cantanteMode ? "line-through text-zinc-600" : ""}`}>{song?.title}</p><p className="text-zinc-400 mt-1">{song?.artist}</p></div><div className="grid grid-cols-2 gap-2"><button onClick={() => advanceSong(false)} className="py-5 rounded-2xl bg-canvas-800 font-black">→ Paso</button><button onClick={() => advanceSong(true)} className="py-5 rounded-2xl bg-emerald-600 font-black text-xl">✓ Acierto</button></div><button disabled={!wildcardCount} onClick={() => { timer.stop(); setWildcardOpen(true); }} className={`w-full py-2.5 rounded-xl border text-xs font-black ${wildcardCount ? "bg-canvas-900 border-canvas-700" : "bg-canvas-900/40 border-canvas-800 text-zinc-700"}`}>🃏 {current.teamName} · {wildcardCount} disponibles</button></>}
-      {phase === "between" && <><div className="text-center"><p className="text-xs uppercase tracking-widest text-zinc-500">Turno terminado</p><p className="text-5xl font-black mt-2">{results[results.length - 1]?.correct ?? 0}</p><p className="text-zinc-500">aciertos</p></div><button onClick={() => { setPlayerIndex((index) => index + 1); setPhase("ready"); }} className="w-full py-4 rounded-2xl bg-white text-zinc-900 font-black">Siguiente jugador →</button></>}
+      {phase === "between" && <><div className="text-center"><p className="text-xs uppercase tracking-widest text-zinc-500">Turno terminado</p><p className="text-5xl font-black mt-2">{results[results.length - 1]?.correct ?? 0}</p><p className="text-zinc-500">aciertos</p><p className="text-xs text-zinc-600 mt-3">El siguiente jugador recibe un banco completo de 15 canciones.</p></div><button onClick={() => { setPlayerIndex((index) => index + 1); setPhase("ready"); }} className="w-full py-4 rounded-2xl bg-white text-zinc-900 font-black">Siguiente jugador →</button></>}
     </div>
 
     {wildcardOpen && liveTeam && <WildcardModal team={liveTeam} allTeams={teams} context="my_turn" disabledIds={DISABLED} onClose={() => { setWildcardOpen(false); timer.resume(finishTurn); }} onUsed={handleWildcard} />}

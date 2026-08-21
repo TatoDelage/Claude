@@ -106,7 +106,6 @@ export default function Setup({
     }));
   };
 
-  // Artist is required in R1 because the "Cantante" wildcard (artist-only) needs it.
   const songComplete = (s: SongEntry) => s.title.trim() !== "" && s.artist.trim() !== "";
   const teamComplete = (teamId: string) => songsByTeam[teamId].every(songComplete);
   const allComplete = teams.every((t) => teamComplete(t.id));
@@ -125,11 +124,9 @@ export default function Setup({
   const currentTeam = teams[activeTeam];
   const songs = songsByTeam[currentTeam.id];
   const colors = TEAM_COLORS[currentTeam.color];
-  const accent = TEAM_ACCENT[currentTeam.color];
 
   return (
     <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
-      {/* Header */}
       <header className="px-4 pt-6 pb-4 border-b border-canvas-700/60">
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
           Ronda 1 · Preparación
@@ -141,7 +138,6 @@ export default function Setup({
       </header>
 
       <div className="flex-1 overflow-auto px-4 py-5 space-y-6 max-w-2xl mx-auto w-full">
-        {/* Timer config */}
         <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
             Tiempos
@@ -165,15 +161,14 @@ export default function Setup({
           />
         </section>
 
-        {/* Team tabs */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {teams.map((team, i) => {
             const done = teamComplete(team.id);
             return (
               <button
                 key={team.id}
                 onClick={() => setActiveTeam(i)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                className={`min-w-0 py-2.5 px-2 rounded-xl text-sm font-bold transition-all ${
                   activeTeam === i
                     ? `${TEAM_ACCENT[team.color]} text-white shadow-lg`
                     : done
@@ -181,14 +176,12 @@ export default function Setup({
                     : "bg-canvas-900 text-zinc-500 border border-canvas-700"
                 }`}
               >
-                {done && activeTeam !== i ? "✓ " : ""}
-                {team.name.split(" ")[0]}
+                <span className="block truncate">{done && activeTeam !== i ? "✓ " : ""}{team.name}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Song inputs for active team */}
         <section className={`border rounded-2xl p-4 space-y-4 ${colors}`}>
           <p className="text-xs font-semibold uppercase tracking-widest opacity-70">
             {currentTeam.name}
@@ -233,7 +226,6 @@ export default function Setup({
             );
           })}
 
-          {/* Reserve song separator */}
           <div className="border-t border-canvas-700/40 pt-3 space-y-1.5">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-base">🔄</span>
@@ -259,7 +251,6 @@ export default function Setup({
           </div>
         </section>
 
-        {/* Progress summary */}
         <div className="flex gap-2">
           {teams.map((team) => (
             <div
@@ -273,7 +264,6 @@ export default function Setup({
           ))}
         </div>
 
-        {/* Start button */}
         <button
           onClick={handleStart}
           disabled={!allComplete}

@@ -16,10 +16,14 @@ import {
 
 const BUZZ_SECONDS = 15;
 const ANSWER_SECONDS = 8;
-const POINTS_PER_DUEL = 20;
+const POINTS_PER_DUEL = 10;
 const CHAMPION_BONUS = 40;
+const DEFAULT_DUEL_COUNT = 6;
+const MIN_DUEL_COUNT = 4;
+const MAX_DUEL_COUNT = 10;
 
 type Phase = "waiting" | "duels" | "final" | "results";
+type DuelSong = { title: string; artist: string };
 
 const TEAM_STYLE: Record<string, { panel: string; text: string; dot: string }> = {
   violet: { panel: "border-violet-600/45 bg-violet-950/30", text: "text-violet-200", dot: "bg-violet-400" },
@@ -28,12 +32,17 @@ const TEAM_STYLE: Record<string, { panel: string; text: string; dot: string }> =
   rose: { panel: "border-rose-600/45 bg-rose-950/25", text: "text-rose-200", dot: "bg-rose-400" },
 };
 
+const emptySongs = (count: number): DuelSong[] => Array.from({ length: count }, () => ({ title: "", artist: "" }));
+
 export default function Round3Content() {
   const router = useRouter();
   const { game, hydrated, setGame } = useGame();
   const [room, setRoom] = useState<RemoteRoom | null>(null);
   const [orders, setOrders] = useState<DuelOrderRow[]>([]);
   const [phase, setPhase] = useState<Phase>("waiting");
+  const [duelCount, setDuelCount] = useState(DEFAULT_DUEL_COUNT);
+  const [songs, setSongs] = useState<DuelSong[]>(() => emptySongs(DEFAULT_DUEL_COUNT));
+  const [finalSong, setFinalSong] = useState<DuelSong>({ title: "", artist: "" });
   const [duelIndex, setDuelIndex] = useState(0);
   const [duelWins, setDuelWins] = useState<Record<number, number>>({});
   const [duelWinners, setDuelWinners] = useState<string[]>([]);
@@ -88,29 +97,42 @@ export default function Round3Content() {
     });
   }, [room]);
 
-  const teamCount = game?.teams.length ?? 0;
+  if (!hydrated || !game) return null;
+
+  const teamCount = game.teams.length;
   const allSubmitted = orders.length === teamCount && teamCount >= 2;
-  const duelCount = orders.length ? Math.min(...orders.map((order) => order.ordered_player_ids.length)) : 0;
+  const songsComplete = songs.length === duelCount && songs.every((song) => song.title.trim() && song.artist.trim());
   const unequalTeams = orders.length > 1 && new Set(orders.map((order) => order.ordered_player_ids.length)).size > 1;
 
   const orderedParticipants = useMemo(() => {
-    if (!orders.length) return [] as string[][];
-    return Array.from({ length: duelCount }, (_, position) => orders.map((order) => order.ordered_player_ids[position]).filter(Boolean));
+    if (!orders.length || orders.some((order) => order.ordered_player_ids.length === 0)) return [] as string[][];
+    return Array.from({ length: duelCount }, (_, position) =>
+      orders.map((order) => order.ordered_player_ids[position % order.ordered_player_ids.length]).filter(Boolean)
+    );
   }, [orders, duelCount]);
 
   const currentParticipants = orderedParticipants[duelIndex] ?? [];
   const currentEligible = currentParticipants.filter((id) => !eliminated.includes(id));
+  const currentSong = songs[duelIndex];
   const currentWinnerId = phase === "duels" && duelStarted && room?.game.buzzer_winner_player_id && currentEligible.includes(room.game.buzzer_winner_player_id) ? room.game.buzzer_winner_player_id : null;
   const finalWinnerId = phase === "final" && duelStarted && room?.game.buzzer_winner_player_id && finalEligible.includes(room.game.buzzer_winner_player_id) ? room.game.buzzer_winner_player_id : null;
   const activeWinnerId = phase === "final" ? finalWinnerId : currentWinnerId;
 
   useEffect(() => { if (activeWinnerId) setAnswerTimeLeft(ANSWER_SECONDS); }, [activeWinnerId]);
 
-  if (!hydrated || !game) return null;
-
   const teamName = (number: number | null) => number ? game.teams[number - 1]?.name ?? `Equipo ${number}` : "Equipo";
   const playerName = (id: string) => room?.players.find((player) => player.id === id)?.display_name ?? "Jugador";
   const playerTeam = (id: string) => room?.players.find((player) => player.id === id)?.team_number ?? null;
+
+  const changeDuelCount = (nextCount: number) => {
+    const next = Math.max(MIN_DUEL_COUNT, Math.min(MAX_DUEL_COUNT, nextCount));
+    setDuelCount(next);
+    setSongs((prev) => Array.from({ length: next }, (_, index) => prev[index] ?? { title: "", artist: "" }));
+  };
+
+  const updateSong = (index: number, field: keyof DuelSong, value: string) => {
+    setSongs((prev) => prev.map((song, songIndex) => songIndex === index ? { ...song, [field]: value } : song));
+  };
 
   const saveManualOrder = async (teamNumber: number) => {
     if (!code || !hostToken || !manualOrders[teamNumber]?.length) return;
@@ -148,13 +170,11 @@ export default function Round3Content() {
     setPhase("results");
   };
 
-  const buildFinalists = (tiedTeams: number[], winnerIds: string[]) => {
-    return tiedTeams.map((teamNumber) => {
-      const winner = [...winnerIds].reverse().find((id) => playerTeam(id) === teamNumber);
-      if (winner) return winner;
-      return orders.find((order) => order.team_number === teamNumber)?.ordered_player_ids[0];
-    }).filter((id): id is string => Boolean(id));
-  };
+  const buildFinalists = (tiedTeams: number[], winnerIds: string[]) => tiedTeams.map((teamNumber) => {
+    const winner = [...winnerIds].reverse().find((id) => playerTeam(id) === teamNumber);
+    if (winner) return winner;
+    return orders.find((order) => order.team_number === teamNumber)?.ordered_player_ids[0];
+  }).filter((id): id is string => Boolean(id));
 
   const finishDuelStage = (wins: Record<number, number>, winners: string[]) => {
     const entries = game.teams.map((_, index) => [index + 1, wins[index + 1] ?? 0] as const);
@@ -257,14 +277,24 @@ export default function Round3Content() {
 
   if (phase === "waiting") return (
     <main className="game-stage min-h-screen px-4 py-10"><div className="max-w-3xl mx-auto space-y-7">
-      <header className="text-center"><p className="game-kicker">Ronda 3</p><h1 className="game-title text-5xl mt-3">Duelos</h1><p className="game-muted mt-3">+20 por duelo ganado · +40 al campeón · sin comodines.</p></header>
+      <header className="text-center"><p className="game-kicker">Ronda 3</p><h1 className="game-title text-5xl mt-3">Duelos</h1><p className="game-muted mt-3">+10 por duelo ganado · +40 al campeón · 15s para pulsar · 8s para responder · sin comodines.</p></header>
       {error && <div className="rounded-xl bg-rose-950/30 border border-rose-700/30 p-3 text-rose-300 text-sm">{error}</div>}
-      {unequalTeams && <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-amber-300 text-sm">Los equipos tienen distinto número de jugadores. Se jugarán {duelCount} duelos.</div>}
+
+      <section className="game-panel rounded-[2rem] p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div><p className="font-black text-lg">Canciones de los duelos</p><p className="text-sm game-muted mt-1">Por defecto 6. Si un equipo tiene menos jugadores, su orden vuelve a empezar.</p></div>
+          <div className="flex items-center gap-2"><button onClick={() => changeDuelCount(duelCount - 1)} disabled={duelCount <= MIN_DUEL_COUNT} className="w-9 h-9 rounded-xl border border-canvas-600 bg-black/15 font-black disabled:opacity-30">−</button><span className="w-8 text-center text-2xl font-black">{duelCount}</span><button onClick={() => changeDuelCount(duelCount + 1)} disabled={duelCount >= MAX_DUEL_COUNT} className="w-9 h-9 rounded-xl border border-canvas-600 bg-black/15 font-black disabled:opacity-30">+</button></div>
+        </div>
+        <div className="space-y-3">{songs.map((song, index) => <div key={index} className="rounded-2xl border border-canvas-700 bg-black/10 p-3"><p className="text-xs game-muted mb-2">Duelo {index + 1}</p><div className="grid gap-2 sm:grid-cols-2"><input value={song.title} onChange={(event) => updateSong(index, "title", event.target.value)} placeholder="Título" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/><input value={song.artist} onChange={(event) => updateSong(index, "artist", event.target.value)} placeholder="Artista" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/></div></div>)}</div>
+        <div className="border-t border-canvas-700 pt-4"><p className="text-xs font-black uppercase tracking-widest game-muted">Desempate opcional</p><p className="text-xs game-muted mt-1 mb-2">Puedes dejarlo vacío y rellenarlo solo si hay empate.</p><div className="grid gap-2 sm:grid-cols-2"><input value={finalSong.title} onChange={(event) => setFinalSong((prev) => ({ ...prev, title: event.target.value }))} placeholder="Título desempate" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/><input value={finalSong.artist} onChange={(event) => setFinalSong((prev) => ({ ...prev, artist: event.target.value }))} placeholder="Artista desempate" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/></div></div>
+      </section>
+
+      {unequalTeams && <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-amber-300 text-sm">Los equipos tienen distinto número de jugadores. No se recorta la ronda: cada orden rota de nuevo cuando se termina.</div>}
       <div className="grid gap-3 sm:grid-cols-2">{game.teams.map((team, index) => {
         const teamNumber = index + 1; const order = orders.find((item) => item.team_number === teamNumber); const style = TEAM_STYLE[team.color]; const editor = manualOrders[teamNumber] ?? []; const editing = editingTeam === teamNumber;
         return <section key={team.id} className={`rounded-3xl border p-5 ${style.panel} space-y-3`}><div className="flex justify-between"><p className={`font-black ${style.text}`}>{team.name}</p><span className="text-xs font-black">{order ? "✓ ENVIADO" : "ESPERANDO"}</span></div>{!editing ? <button onClick={() => { if (order) setManualOrders((prev) => ({ ...prev, [teamNumber]: [...order.ordered_player_ids] })); setEditingTeam(teamNumber); }} className="w-full py-2 rounded-xl bg-black/15 border border-canvas-600 text-xs font-black">{order ? "Editar orden" : "Configurar orden"}</button> : <div className="space-y-2">{editor.map((id, position) => <div key={id} className="flex items-center gap-2 rounded-xl bg-black/15 p-2"><span className="w-6 text-center text-xs">{position + 1}</span><span className="flex-1 text-sm font-bold">{playerName(id)}</span><button onClick={() => moveManualPlayer(teamNumber, position, -1)} className="px-2">↑</button><button onClick={() => moveManualPlayer(teamNumber, position, 1)} className="px-2">↓</button></div>)}<button disabled={savingTeam === teamNumber} onClick={() => saveManualOrder(teamNumber)} className="w-full py-2 rounded-xl bg-white text-zinc-900 font-black text-xs">Guardar</button></div>}</section>;
       })}</div>
-      <button disabled={!allSubmitted || duelCount === 0} onClick={() => setPhase("duels")} className="game-primary w-full py-4 rounded-2xl font-black text-lg disabled:opacity-30">Revelar Duelos →</button>
+      <button disabled={!allSubmitted || !songsComplete || orderedParticipants.length !== duelCount} onClick={() => setPhase("duels")} className="game-primary w-full py-4 rounded-2xl font-black text-lg disabled:opacity-30">{!songsComplete ? "Completa las canciones" : !allSubmitted ? "Esperando órdenes" : "Revelar Duelos →"}</button>
     </div></main>
   );
 
@@ -273,13 +303,15 @@ export default function Round3Content() {
   }
 
   if (phase === "final") {
-    return <main className="game-stage min-h-screen px-4 py-10"><div className="max-w-2xl mx-auto space-y-6 text-center"><header><p className="game-kicker">Desempate</p><h1 className="game-title text-5xl mt-3">Duelo Final</h1><p className="game-muted mt-2">15s para pulsar · 8s para responder · solo decide el bonus de campeón.</p></header><div className="grid gap-2">{finalEligible.map((id) => <div key={id} className="rounded-xl bg-black/15 border border-canvas-700 p-3 font-black">{playerName(id)} · {teamName(playerTeam(id))}</div>)}</div>{activeWinnerId ? <div className="space-y-4"><p className="text-2xl font-black">⚡ {playerName(activeWinnerId)}</p><p className="text-5xl font-black text-gold-300">{answerTimeLeft}s</p><div className="grid grid-cols-2 gap-3"><button onClick={markBuzzWrong} className="py-4 rounded-2xl bg-rose-950/40 text-rose-300 font-black">✗ Fallo</button><button onClick={markBuzzCorrect} className="py-4 rounded-2xl bg-emerald-950/40 text-emerald-300 font-black">✓ Campeón</button></div></div> : duelStarted ? <div><p className="text-6xl font-black text-gold-300">{buzzTimeLeft}</p><p className="game-muted">esperando pulsador</p></div> : <button disabled={busy || finalEligible.length < 2} onClick={() => openBuzzer(finalEligible)} className="game-primary w-full py-4 rounded-2xl font-black">Abrir Duelo Final</button>}</div></main>;
+    const finalSongReady = finalSong.title.trim() && finalSong.artist.trim();
+    return <main className="game-stage min-h-screen px-4 py-10"><div className="max-w-2xl mx-auto space-y-6 text-center"><header><p className="game-kicker">Desempate</p><h1 className="game-title text-5xl mt-3">Duelo Final</h1><p className="game-muted mt-2">15s para pulsar · 8s para responder · solo decide el bonus de campeón.</p></header><div className="rounded-2xl bg-black/10 border border-canvas-700 p-4"><p className="text-xs game-muted mb-2">Canción de desempate</p>{duelStarted || activeWinnerId ? <><p className="text-2xl font-black">{finalSong.title}</p><p className="game-muted">{finalSong.artist}</p></> : <div className="grid gap-2 sm:grid-cols-2"><input value={finalSong.title} onChange={(event) => setFinalSong((prev) => ({ ...prev, title: event.target.value }))} placeholder="Título" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/><input value={finalSong.artist} onChange={(event) => setFinalSong((prev) => ({ ...prev, artist: event.target.value }))} placeholder="Artista" className="rounded-xl bg-black/15 border border-canvas-600 px-3 py-2.5"/></div>}</div><div className="grid gap-2">{finalEligible.map((id) => <div key={id} className="rounded-xl bg-black/15 border border-canvas-700 p-3 font-black">{playerName(id)} · {teamName(playerTeam(id))}</div>)}</div>{activeWinnerId ? <div className="space-y-4"><p className="text-2xl font-black">⚡ {playerName(activeWinnerId)}</p><p className="text-5xl font-black text-gold-300">{answerTimeLeft}s</p><div className="grid grid-cols-2 gap-3"><button onClick={markBuzzWrong} className="py-4 rounded-2xl bg-rose-950/40 text-rose-300 font-black">✗ Fallo</button><button onClick={markBuzzCorrect} className="py-4 rounded-2xl bg-emerald-950/40 text-emerald-300 font-black">✓ Campeón</button></div></div> : duelStarted ? <div><p className="text-6xl font-black text-gold-300">{buzzTimeLeft}</p><p className="game-muted">esperando pulsador</p></div> : <button disabled={busy || finalEligible.length < 2 || !finalSongReady} onClick={() => openBuzzer(finalEligible)} className="game-primary w-full py-4 rounded-2xl font-black disabled:opacity-30">Abrir Duelo Final</button>}</div></main>;
   }
 
   const directPlayer = directPlayerId ? room?.players.find((player) => player.id === directPlayerId) : null;
   return (
     <main className="game-stage min-h-screen px-4 py-8"><div className="max-w-3xl mx-auto space-y-6 text-center">
       <header><p className="game-kicker">Duelos · {duelIndex + 1}/{duelCount}</p><h1 className="game-title text-5xl mt-3">Pulsadores</h1><p className="game-muted mt-2">15s para pulsar · 8s para responder</p></header>
+      <section className="rounded-3xl bg-gold-300/[0.06] border border-gold-300/20 p-5"><p className="text-xs uppercase tracking-widest game-muted">Canción del duelo</p><p className="text-2xl font-black mt-2">{currentSong?.title}</p><p className="text-sm game-muted mt-1">{currentSong?.artist}</p></section>
       <div className="grid gap-2 sm:grid-cols-2">{currentParticipants.map((id) => { const out = eliminated.includes(id); return <div key={id} className={`rounded-2xl border p-4 ${out ? "opacity-35 border-canvas-800" : "border-canvas-600 bg-black/10"}`}><p className="font-black">{playerName(id)}</p><p className="text-xs game-muted">{teamName(playerTeam(id))}{out ? " · eliminado" : ""}</p></div>; })}</div>
       {directPlayer ? <div className="space-y-4"><p className="text-xl font-black">Último en pie: {directPlayer.display_name}</p><p className="text-5xl font-black text-gold-300">{answerTimeLeft}s</p><div className="grid grid-cols-2 gap-3"><button onClick={() => directAnswer(false)} className="py-4 rounded-2xl bg-rose-950/40 text-rose-300 font-black">✗ Fallo</button><button onClick={() => directAnswer(true)} className="py-4 rounded-2xl bg-emerald-950/40 text-emerald-300 font-black">✓ +{POINTS_PER_DUEL}</button></div></div> : activeWinnerId ? <div className="space-y-4"><p className="text-2xl font-black">⚡ {playerName(activeWinnerId)} pulsó primero</p><p className="text-5xl font-black text-gold-300">{answerTimeLeft}s</p><div className="grid grid-cols-2 gap-3"><button onClick={markBuzzWrong} className="py-4 rounded-2xl bg-rose-950/40 text-rose-300 font-black">✗ Fallo</button><button onClick={markBuzzCorrect} className="py-4 rounded-2xl bg-emerald-950/40 text-emerald-300 font-black">✓ +{POINTS_PER_DUEL}</button></div></div> : duelStarted ? <div><p className="text-6xl font-black text-gold-300">{buzzTimeLeft}</p><p className="game-muted">pulsador abierto</p></div> : <button disabled={busy || currentEligible.length < 2} onClick={() => openBuzzer(currentEligible)} className="game-primary w-full py-4 rounded-2xl font-black">Abrir pulsadores</button>}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{game.teams.map((team, index) => <div key={team.id} className="rounded-xl bg-black/10 border border-canvas-700 p-3"><p className={`text-xs font-black ${TEAM_STYLE[team.color].text}`}>{team.name}</p><p className="text-xl font-black">{duelWins[index + 1] ?? 0}</p><p className="text-[10px] game-muted">duelos</p></div>)}</div>

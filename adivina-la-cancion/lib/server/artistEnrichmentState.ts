@@ -150,6 +150,6 @@ export async function runArtistEnrichment(artistId: string): Promise<ArtistEnric
 
 export async function runArtistEnrichmentIfNeeded(artistId: string): Promise<ArtistEnrichmentState> {
   const current = await getArtistEnrichmentState(artistId);
-  if (current.status === "enriched") return current;
+  if (current.status === "enriched" || current.status === "processing") return current;
   return runArtistEnrichment(artistId);
 }

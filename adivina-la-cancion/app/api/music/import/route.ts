@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { assertMusicAdmin, MusicAdminAuthError } from "@/lib/server/musicServerAuth";
 import { ingestSpotifyTrackById } from "@/lib/server/musicIngestion";
 import { runArtistEnrichmentIfNeeded } from "@/lib/server/artistEnrichmentState";
+import { runSongEnrichmentIfNeeded } from "@/lib/server/songEnrichmentState";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,14 +21,22 @@ export async function POST(request: Request) {
         try {
           await runArtistEnrichmentIfNeeded(artistId);
         } catch (error) {
-          console.error(`Enriquecimiento automático fallido para ${artistId}`, error);
+          console.error(`Enriquecimiento automático de artista fallido para ${artistId}`, error);
         }
+      }
+
+      try {
+        await runSongEnrichmentIfNeeded(result.songId);
+      } catch (error) {
+        console.error(`Enriquecimiento automático de canción fallido para ${result.songId}`, error);
       }
     });
 
     return Response.json({
       result,
-      enrichmentScheduled: result.artistIds.length > 0,
+      enrichmentScheduled: true,
+      artistEnrichmentScheduled: result.artistIds.length > 0,
+      songEnrichmentScheduled: true,
     });
   } catch (error) {
     if (error instanceof MusicAdminAuthError) {

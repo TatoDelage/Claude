@@ -79,6 +79,7 @@ export default function MusicAdminPage() {
 
   useEffect(() => {
     if (!lastImport || !secret || lastImport.artistIds.length === 0) return;
+    const currentImport = lastImport;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -86,7 +87,7 @@ export default function MusicAdminPage() {
     async function poll() {
       try {
         const entries = await Promise.all(
-          lastImport.artistIds.map(async (artistId) => {
+          currentImport.artistIds.map(async (artistId) => {
             const response = await fetch(`/api/music/enrich-artist?artistId=${encodeURIComponent(artistId)}`, {
               headers: { "x-music-admin-secret": secret },
               cache: "no-store",

@@ -1,4 +1,5 @@
-import { verifyLyricsContains, type LyricsVerificationResult } from "./musixmatchLyrics";
+import { verifyLyricsContains, type LyricsVerificationResult } from "./lrclibLyrics";
+import { getSpotifyTrack } from "./spotifyCatalog";
 
 type SongRow = {
   id: string;
@@ -66,11 +67,11 @@ async function loadSong(songId: string) {
 }
 
 async function persistVerification(songId: string, verification: LyricsVerificationResult) {
-  const externalIds = verification.commontrackId
+  const externalIds = verification.lyricsId
     ? [{
-        provider: "musixmatch",
-        external_id: String(verification.commontrackId),
-        external_url: null,
+        provider: verification.provider,
+        external_id: String(verification.lyricsId),
+        external_url: verification.sourceUrl ?? null,
       }]
     : [];
 
@@ -81,18 +82,14 @@ async function persistVerification(songId: string, verification: LyricsVerificat
         value_text: verification.normalizedQuery,
         verification_tier: "B",
         status: verification.status,
-        confidence: verification.confidence ?? 0.96,
+        confidence: verification.confidence ?? 0.94,
         evidence: [{
-          provider: "musixmatch",
-          source_ref: verification.lyricsId
-            ? `lyrics:${verification.lyricsId}`
-            : verification.commontrackId
-              ? `commontrack:${verification.commontrackId}`
-              : null,
-          source_url: null,
+          provider: verification.provider,
+          source_ref: verification.lyricsId ? `lyrics:${verification.lyricsId}` : null,
+          source_url: verification.sourceUrl ?? null,
           verdict: verification.contains === true,
-          confidence: verification.confidence ?? 0.96,
-          notes: "Verificado de forma transitoria contra el proveedor licenciado; la letra original no se almacena.",
+          confidence: verification.confidence ?? 0.94,
+          notes: "Verificado de forma transitoria contra un proveedor externo; la letra original no se almacena.",
         }],
       }];
 
@@ -125,11 +122,23 @@ export async function verifyLyricsFact(songId: string, query: string): Promise<L
   const { song, externalIds, artistName } = await loadSong(songId);
   const spotifyId = externalIds.find((item) => item.provider === "spotify")?.external_id;
 
+  let albumName: string | undefined;
+  let durationSeconds: number | undefined;
+  if (spotifyId) {
+    try {
+      const spotifyTrack = await getSpotifyTrack(spotifyId);
+      albumName = spotifyTrack.albumName;
+      durationSeconds = spotifyTrack.durationMs ? spotifyTrack.durationMs / 1000 : undefined;
+    } catch {
+      // LRCLIB can still match by title + artist when Spotify metadata is temporarily unavailable.
+    }
+  }
+
   const verification = await verifyLyricsContains({
     title: song.title,
     artist: artistName,
-    isrc: song.isrc ?? undefined,
-    spotifyId,
+    albumName,
+    durationSeconds,
     query,
   });
 

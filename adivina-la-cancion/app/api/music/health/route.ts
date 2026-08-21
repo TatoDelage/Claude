@@ -1,6 +1,5 @@
 import { spotifyIsConfigured } from "@/lib/server/spotifyCatalog";
 import { supabaseMusicWriteIsConfigured } from "@/lib/server/musicIngestion";
-import { musixmatchIsConfigured } from "@/lib/server/musixmatchLyrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +10,8 @@ export async function GET() {
     spotifyConfigured: spotifyIsConfigured(),
     supabaseWriteConfigured: supabaseMusicWriteIsConfigured(),
     adminSecretConfigured: Boolean(process.env.MUSIC_ADMIN_SECRET),
-    musixmatchConfigured: musixmatchIsConfigured(),
+    lyricsProvider: "lrclib",
+    lyricsProviderConfigured: true,
+    musixmatchConfigured: Boolean(process.env.MUSIXMATCH_API_KEY?.trim()),
   });
 }

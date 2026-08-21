@@ -1,3 +1,4 @@
+import type { CanonicalInstrument } from "../instrumentTaxonomy";
 import { enrichSong, type SongEnrichmentResult } from "./songEnrichment";
 
 export type SongEnrichmentStatus = "pending" | "processing" | "enriched" | "failed";
@@ -82,6 +83,9 @@ export async function getSongEnrichmentState(songId: string): Promise<SongEnrich
     const soundtrackKinds = facts
       .filter((fact) => fact.predicate === "song_soundtrack_kind" && fact.value_text)
       .map((fact) => fact.value_text as string);
+    const instrumentCodes = facts
+      .filter((fact) => fact.predicate === "song_instrument_present" && fact.value_text)
+      .map((fact) => fact.value_text as CanonicalInstrument);
     result = {
       songId: song.id,
       songTitle: song.title,
@@ -89,6 +93,7 @@ export async function getSongEnrichmentState(songId: string): Promise<SongEnrich
       isCollaboration: collab,
       isCover: cover,
       isInstrumental: false,
+      instrumentCodes: Array.from(new Set(instrumentCodes)),
       eurovision,
       soundtrackKinds,
       factsWritten: facts.length,

@@ -25,7 +25,7 @@ const WILDCARDS: Omit<Wildcard, "used">[] = [
   { id: "tiempo", name: "Tiempo", emoji: "⏱️", description: "+10 segundos al reloj activo", type: WILDCARD_TYPES.tiempo },
   { id: "silencio", name: "Silencio", emoji: "🔇", description: "Bloquea a un jugador rival durante este reto", type: WILDCARD_TYPES.silencio },
   { id: "cantante", name: "Cantante", emoji: "🎤", description: "Solo hace falta acertar el artista", type: WILDCARD_TYPES.cantante },
-  { id: "robo", name: "Robo", emoji: "🎭", description: "Si el rival falla, el rebote es exclusivamente tuyo", type: WILDCARD_TYPES.robo },
+  { id: "robo", name: "Robo", emoji: "🎭", description: "Si el rival falla en Lo básico, obtienes un rebote exclusivo", type: WILDCARD_TYPES.robo },
   { id: "otra", name: "Otra canción", emoji: "🔄", description: "Cambia la canción sin penalización", type: WILDCARD_TYPES.otra },
   { id: "supercomodin", name: "Supercomodín", emoji: "⭐", description: "Tararea, predice y roba hasta 40 puntos al líder", type: WILDCARD_TYPES.supercomodin },
 ];
@@ -46,7 +46,7 @@ export const OFFICIAL_ROUNDS: Round[] = [
   {
     number: 3,
     name: "Duelos",
-    shortDesc: "+20 por duelo ganado · +40 al campeón · pulsador",
+    shortDesc: "6 duelos por defecto · +10 por duelo · +40 al campeón",
     status: "pending",
   },
   {
@@ -58,7 +58,7 @@ export const OFFICIAL_ROUNDS: Round[] = [
   {
     number: 5,
     name: "Relámpago",
-    shortDesc: "45s por jugador · desempate a 30s · +120 al campeón",
+    shortDesc: "45s por jugador · banco nuevo por turno · +120 al campeón",
     status: "pending",
   },
 ];

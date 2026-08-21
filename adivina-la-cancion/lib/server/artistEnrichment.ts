@@ -103,18 +103,25 @@ async function getArtist(artistId: string) {
 export async function enrichArtist(artistId: string): Promise<ArtistEnrichmentResult> {
   const { artist, externalIds } = await getArtist(artistId);
   const spotify = externalIds.find((item) => item.provider === "spotify");
-  const musicBrainz = await resolveMusicBrainzArtist(artist.name, spotify?.external_url ?? undefined);
+  const knownMusicBrainz = externalIds.find((item) => item.provider === "musicbrainz");
+  const knownWikidata = externalIds.find((item) => item.provider === "wikidata");
+  const musicBrainz = await resolveMusicBrainzArtist(
+    artist.name,
+    spotify?.external_url ?? undefined,
+    knownMusicBrainz?.external_id,
+  );
 
   const warnings: string[] = [];
+  const wikidataId = musicBrainz.wikidataId ?? knownWikidata?.external_id;
   let wikidata: Awaited<ReturnType<typeof getWikidataArtistKnowledge>> | undefined;
-  if (musicBrainz.wikidataId) {
+  if (wikidataId) {
     try {
-      wikidata = await getWikidataArtistKnowledge(musicBrainz.wikidataId);
+      wikidata = await getWikidataArtistKnowledge(wikidataId);
     } catch (error) {
       warnings.push(error instanceof Error ? `Wikidata: ${error.message}` : "Wikidata no pudo verificarse");
     }
   } else {
-    warnings.push("MusicBrainz no expone un enlace a Wikidata para este artista");
+    warnings.push("No existe todavía un enlace a Wikidata para este artista");
   }
 
   const artistType = mapArtistType(musicBrainz.type, wikidata);
@@ -220,11 +227,11 @@ export async function enrichArtist(artistId: string): Promise<ArtistEnrichmentRe
         external_id: musicBrainz.mbid,
         external_url: musicBrainz.sourceUrl,
       },
-      ...(musicBrainz.wikidataId
+      ...(wikidataId
         ? [{
             provider: "wikidata",
-            external_id: musicBrainz.wikidataId,
-            external_url: `https://www.wikidata.org/wiki/${musicBrainz.wikidataId}`,
+            external_id: wikidataId,
+            external_url: `https://www.wikidata.org/wiki/${wikidataId}`,
           }]
         : []),
     ],

@@ -198,22 +198,24 @@ export async function enrichSong(songId: string): Promise<SongEnrichmentResult> 
     });
   }
 
-  for (const kind of wikidata?.soundtrackKinds ?? []) {
-    facts.push({
-      predicate: "song_soundtrack_kind",
-      value_text: kind,
-      verification_tier: "B",
-      status: "verified",
-      confidence: 0.95,
-      evidence: [{
-        provider: "wikidata",
-        source_ref: wikidata.id,
-        source_url: wikidata.sourceUrl,
-        verdict: true,
+  if (wikidata) {
+    for (const kind of wikidata.soundtrackKinds) {
+      facts.push({
+        predicate: "song_soundtrack_kind",
+        value_text: kind,
+        verification_tier: "B",
+        status: "verified",
         confidence: 0.95,
-        notes: `La obra forma parte de un lanzamiento de banda sonora asociado a ${kind}`,
-      }],
-    });
+        evidence: [{
+          provider: "wikidata",
+          source_ref: wikidata.id,
+          source_url: wikidata.sourceUrl,
+          verdict: true,
+          confidence: 0.95,
+          notes: `La obra forma parte de un lanzamiento de banda sonora asociado a ${kind}`,
+        }],
+      });
+    }
   }
 
   const tags = Array.from(new Set([

@@ -1,3 +1,4 @@
+import type { CanonicalInstrument } from "../instrumentTaxonomy";
 import { resolveMusicBrainzSong } from "./musicBrainzSong";
 import { getWikidataSongKnowledge } from "./wikidataSongKnowledge";
 
@@ -27,6 +28,7 @@ export type SongEnrichmentResult = {
   isCollaboration: boolean;
   isCover: boolean;
   isInstrumental: boolean;
+  instrumentCodes: CanonicalInstrument[];
   eurovision: boolean;
   soundtrackKinds: string[];
   factsWritten: number;
@@ -112,6 +114,7 @@ export async function enrichSong(songId: string): Promise<SongEnrichmentResult> 
   const wdLanguages = (wikidata?.languageCodes ?? []).map(mapLanguage).filter((value): value is string => Boolean(value));
   const languageCodes = Array.from(new Set([...mbLanguages, ...wdLanguages]));
   const isCollaboration = artists.length > 1;
+  const instrumentCodes = Array.from(new Set(musicBrainz.instrumentCredits.map((credit) => credit.instrument)));
   const facts: Array<Record<string, unknown>> = [];
 
   facts.push({
@@ -162,6 +165,25 @@ export async function enrichSong(songId: string): Promise<SongEnrichmentResult> 
     });
   }
 
+  for (const instrument of instrumentCodes) {
+    const matchingCredits = musicBrainz.instrumentCredits.filter((credit) => credit.instrument === instrument);
+    facts.push({
+      predicate: "song_instrument_present",
+      value_text: instrument,
+      verification_tier: "A",
+      status: "verified",
+      confidence: 0.98,
+      evidence: matchingCredits.map((credit) => ({
+        provider: "musicbrainz",
+        source_ref: musicBrainz.recordingMbid,
+        source_url: musicBrainz.sourceUrl,
+        verdict: true,
+        confidence: 0.98,
+        notes: `${credit.performerName ?? "Un intérprete"} aparece acreditado con ${credit.rawInstrument} en esta grabación`,
+      })),
+    });
+  }
+
   if (musicBrainz.isCover) {
     facts.push({
       predicate: "song_is_cover",
@@ -193,7 +215,7 @@ export async function enrichSong(songId: string): Promise<SongEnrichmentResult> 
         source_url: wikidata.sourceUrl,
         verdict: true,
         confidence: 0.98,
-        notes: "Wikidata enlaza la obra mediante participant in con Eurovision Song Contest",
+        notes: "Wikidata enlaza la obra estructuralmente con Eurovision Song Contest",
       }],
     });
   }
@@ -254,6 +276,7 @@ export async function enrichSong(songId: string): Promise<SongEnrichmentResult> 
     isCollaboration,
     isCover: musicBrainz.isCover,
     isInstrumental: musicBrainz.isInstrumental,
+    instrumentCodes,
     eurovision: Boolean(wikidata?.eurovision),
     soundtrackKinds: wikidata?.soundtrackKinds ?? [],
     factsWritten: saved.facts_written ?? facts.length,

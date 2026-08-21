@@ -29,30 +29,66 @@ type MbArtist = {
 type MbSearchArtist = MbArtist & { score?: number };
 
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
-const USER_AGENT = "AdivinaLaCancion/0.1 (https://github.com/TatoDelage/Claude)";
+const USER_AGENT = "AdivinaLaCancion/0.2 (https://claude-blue-tau.vercel.app)";
+const MIN_REQUEST_GAP_MS = 1400;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 let lastMusicBrainzRequestAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function musicBrainzFetch<T>(path: string): Promise<T> {
+async function waitForRateLimit() {
   const sinceLast = Date.now() - lastMusicBrainzRequestAt;
-  if (sinceLast < 1100) await sleep(1100 - sinceLast);
+  if (sinceLast < MIN_REQUEST_GAP_MS) await sleep(MIN_REQUEST_GAP_MS - sinceLast);
   lastMusicBrainzRequestAt = Date.now();
+}
 
-  const response = await fetch(`${MUSICBRAINZ_BASE}${path}`, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": USER_AGENT,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`MusicBrainz respondió ${response.status}`);
+function retryDelay(response: Response, attempt: number) {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1000, 6000);
   }
-  return (await response.json()) as T;
+  return attempt === 0 ? 1600 : 3200;
+}
+
+async function musicBrainzFetch<T>(path: string): Promise<T> {
+  let lastStatus: number | undefined;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await waitForRateLimit();
+
+    let response: Response;
+    try {
+      response = await fetch(`${MUSICBRAINZ_BASE}${path}`, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": USER_AGENT,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch (error) {
+      if (attempt < 2) {
+        await sleep(attempt === 0 ? 1600 : 3200);
+        continue;
+      }
+      const detail = error instanceof Error ? error.message : "error de red";
+      throw new Error(`MusicBrainz no está disponible temporalmente (${detail})`);
+    }
+
+    if (response.ok) return (await response.json()) as T;
+
+    lastStatus = response.status;
+    if (!RETRYABLE_STATUS.has(response.status) || attempt === 2) break;
+    await sleep(retryDelay(response, attempt));
+  }
+
+  if (lastStatus === 429 || lastStatus === 503) {
+    throw new Error(`MusicBrainz está temporalmente saturado (${lastStatus}); vuelve a intentarlo en unos segundos`);
+  }
+  throw new Error(`MusicBrainz respondió ${lastStatus ?? "con error"}`);
 }
 
 function simpleNormalize(value: string) {
@@ -66,6 +102,10 @@ function simpleNormalize(value: string) {
 
 function escapeLucene(value: string) {
   return value.replace(/([+\-!(){}\[\]^"~*?:\\/]|&&|\|\|)/g, "\\$1");
+}
+
+function validMbid(value?: string) {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value));
 }
 
 async function mbidFromSpotifyUrl(spotifyUrl: string): Promise<string | null> {
@@ -113,8 +153,15 @@ export type ResolvedMusicBrainzArtist = {
   sourceUrl: string;
 };
 
-export async function resolveMusicBrainzArtist(name: string, spotifyUrl?: string): Promise<ResolvedMusicBrainzArtist> {
-  const mbid = (spotifyUrl ? await mbidFromSpotifyUrl(spotifyUrl) : null) ?? (await mbidFromName(name));
+export async function resolveMusicBrainzArtist(
+  name: string,
+  spotifyUrl?: string,
+  knownMbid?: string,
+): Promise<ResolvedMusicBrainzArtist> {
+  const mbid = validMbid(knownMbid)
+    ? (knownMbid as string)
+    : (spotifyUrl ? await mbidFromSpotifyUrl(spotifyUrl) : null) ?? (await mbidFromName(name));
+
   const params = new URLSearchParams({
     inc: "genres+area-rels+artist-rels+url-rels",
     fmt: "json",

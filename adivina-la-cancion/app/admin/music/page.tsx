@@ -41,6 +41,15 @@ type EnrichmentResult = {
   warnings: string[];
 };
 
+type EnrichmentState = {
+  artistId: string;
+  artistName: string;
+  status: "pending" | "processing" | "enriched" | "failed";
+  attemptedAt?: string;
+  error?: string;
+  result?: EnrichmentResult;
+};
+
 const STATUS_COPY = {
   created: "Creada en el catálogo",
   existing: "Ya existía en el catálogo",
@@ -57,7 +66,7 @@ export default function MusicAdminPage() {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [enrichingArtistId, setEnrichingArtistId] = useState<string | null>(null);
   const [lastImport, setLastImport] = useState<ImportResult | null>(null);
-  const [enrichments, setEnrichments] = useState<Record<string, EnrichmentResult>>({});
+  const [enrichmentStates, setEnrichmentStates] = useState<Record<string, EnrichmentState>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +76,49 @@ export default function MusicAdminPage() {
       .then((data) => setHealth(data as Health))
       .catch(() => setHealth(null));
   }, []);
+
+  useEffect(() => {
+    if (!lastImport || !secret || lastImport.artistIds.length === 0) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function poll() {
+      try {
+        const entries = await Promise.all(
+          lastImport.artistIds.map(async (artistId) => {
+            const response = await fetch(`/api/music/enrich-artist?artistId=${encodeURIComponent(artistId)}`, {
+              headers: { "x-music-admin-secret": secret },
+              cache: "no-store",
+            });
+            if (!response.ok) return [artistId, null] as const;
+            const payload = (await response.json()) as { state?: EnrichmentState };
+            return [artistId, payload.state ?? null] as const;
+          }),
+        );
+
+        if (cancelled) return;
+        const next: Record<string, EnrichmentState> = {};
+        for (const [artistId, state] of entries) {
+          if (state) next[artistId] = state;
+        }
+        setEnrichmentStates((current) => ({ ...current, ...next }));
+
+        const stillWorking = Object.values(next).some(
+          (state) => state.status === "pending" || state.status === "processing",
+        );
+        if (stillWorking) timer = setTimeout(poll, 1600);
+      } catch {
+        if (!cancelled) timer = setTimeout(poll, 2500);
+      }
+    }
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [lastImport, secret]);
 
   async function search(event: FormEvent) {
     event.preventDefault();
@@ -107,10 +159,27 @@ export default function MusicAdminPage() {
         },
         body: JSON.stringify({ spotifyId: candidate.spotifyId }),
       });
-      const payload = (await response.json()) as { result?: ImportResult; error?: string };
+      const payload = (await response.json()) as {
+        result?: ImportResult;
+        enrichmentScheduled?: boolean;
+        error?: string;
+      };
       if (!response.ok || !payload.result) throw new Error(payload.error || "No se pudo importar");
+
+      const pendingStates: Record<string, EnrichmentState> = {};
+      payload.result.artistIds.forEach((artistId, index) => {
+        pendingStates[artistId] = {
+          artistId,
+          artistName: payload.result?.track.artists[index]?.name ?? artistId,
+          status: "pending",
+        };
+      });
+      setEnrichmentStates(pendingStates);
       setLastImport(payload.result);
-      setMessage(`${STATUS_COPY[payload.result.status]} · ${payload.result.track.title} · ID ${payload.result.songId}`);
+      setMessage(
+        `${STATUS_COPY[payload.result.status]} · ${payload.result.track.title}` +
+          (payload.enrichmentScheduled ? " · enriquecimiento automático iniciado" : ""),
+      );
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : "No se pudo importar");
     } finally {
@@ -131,10 +200,16 @@ export default function MusicAdminPage() {
         },
         body: JSON.stringify({ artistId }),
       });
-      const payload = (await response.json()) as { result?: EnrichmentResult; error?: string };
-      if (!response.ok || !payload.result) throw new Error(payload.error || "No se pudo enriquecer el artista");
-      setEnrichments((current) => ({ ...current, [artistId]: payload.result as EnrichmentResult }));
-      setMessage(`Enriquecido · ${payload.result.artistName} · ${payload.result.factsWritten} hechos verificados`);
+      const payload = (await response.json()) as {
+        state?: EnrichmentState;
+        result?: EnrichmentResult;
+        error?: string;
+      };
+      if (!response.ok || !payload.state) throw new Error(payload.error || "No se pudo enriquecer el artista");
+      setEnrichmentStates((current) => ({ ...current, [artistId]: payload.state as EnrichmentState }));
+      if (payload.result) {
+        setMessage(`Enriquecido · ${payload.result.artistName} · ${payload.result.factsWritten} hechos verificados`);
+      }
     } catch (enrichmentError) {
       setError(enrichmentError instanceof Error ? enrichmentError.message : "No se pudo enriquecer el artista");
     } finally {
@@ -150,7 +225,7 @@ export default function MusicAdminPage() {
         <header>
           <p className="game-kicker">Laboratorio interno</p>
           <h1 className="game-title text-4xl mt-2">Catálogo musical</h1>
-          <p className="game-muted mt-3">Busca una canción en Spotify, guarda su identidad y enriquece sus artistas con fuentes verificables.</p>
+          <p className="game-muted mt-3">Busca una canción en Spotify. La identidad se guarda al instante y sus artistas se enriquecen automáticamente en segundo plano.</p>
         </header>
 
         <section className="game-panel rounded-[2rem] p-5">
@@ -165,7 +240,7 @@ export default function MusicAdminPage() {
             </div>
           )}
           {health && !ready && (
-            <p className="mt-3 text-sm text-amber-200">Faltan variables de entorno. La pantalla está lista, pero la ingesta seguirá bloqueada hasta configurarlas.</p>
+            <p className="mt-3 text-sm text-amber-200">Faltan variables de entorno. La ingesta seguirá bloqueada hasta configurarlas.</p>
           )}
         </section>
 
@@ -195,13 +270,17 @@ export default function MusicAdminPage() {
         {lastImport && lastImport.artistIds.length > 0 && (
           <section className="game-panel rounded-[2rem] p-5 space-y-3">
             <div>
-              <p className="game-kicker">Paso 2</p>
-              <h2 className="font-black text-xl mt-1">Enriquecer artistas</h2>
-              <p className="game-muted text-sm mt-1">MusicBrainz resuelve identidad, tipo, origen y géneros. Wikidata confirma tipo y país cuando hay enlace estructurado.</p>
+              <p className="game-kicker">Paso 2 · automático</p>
+              <h2 className="font-black text-xl mt-1">Enriquecimiento de artistas</h2>
+              <p className="game-muted text-sm mt-1">MusicBrainz resuelve identidad, tipo, origen y géneros. Wikidata confirma datos cuando existe enlace estructurado.</p>
             </div>
+
             {lastImport.artistIds.map((artistId, index) => {
-              const enrichment = enrichments[artistId];
-              const artistName = lastImport.track.artists[index]?.name ?? artistId;
+              const state = enrichmentStates[artistId];
+              const enrichment = state?.result;
+              const artistName = lastImport.track.artists[index]?.name ?? state?.artistName ?? artistId;
+              const working = state?.status === "pending" || state?.status === "processing";
+
               return (
                 <div key={artistId} className="rounded-2xl border border-canvas-600/60 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
                   <div>
@@ -209,20 +288,33 @@ export default function MusicAdminPage() {
                     {enrichment ? (
                       <div className="text-sm game-muted mt-1 space-y-1">
                         <p>{enrichment.artistType} · {enrichment.originCountryCode ?? "sin país"}{enrichment.originRegions.length ? ` · ${enrichment.originRegions.join(", ")}` : ""}</p>
-                        <p>{enrichment.genreCodes.length ? enrichment.genreCodes.join(" · ") : "sin géneros canónicos"} · fuentes: {enrichment.sources.join(" + ")}</p>
+                        <p>{enrichment.genreCodes.length ? enrichment.genreCodes.join(" · ") : "sin géneros canónicos"} · fuentes: {enrichment.sources.join(" + ") || "sin fuente externa"}</p>
+                        <p className="text-emerald-200">✓ {enrichment.factsWritten} hechos verificados</p>
                         {enrichment.warnings.map((warning) => <p key={warning} className="text-amber-200">⚠ {warning}</p>)}
                       </div>
+                    ) : state?.status === "failed" ? (
+                      <div className="text-sm mt-1">
+                        <p className="text-rose-200">✕ Enriquecimiento automático fallido</p>
+                        {state.error && <p className="game-muted text-xs mt-1">{state.error}</p>}
+                      </div>
                     ) : (
-                      <p className="text-xs game-muted mt-1">Pendiente de enriquecimiento</p>
+                      <p className="text-sm game-muted mt-1">{state?.status === "processing" ? "Enriqueciendo automáticamente…" : "En cola para enriquecimiento automático…"}</p>
                     )}
                   </div>
+
                   <button
                     type="button"
                     onClick={() => enrichImportedArtist(artistId)}
-                    disabled={Boolean(enrichingArtistId) || !secret}
+                    disabled={Boolean(enrichingArtistId) || working || !secret}
                     className="game-primary rounded-xl px-5 py-3 font-black shrink-0 disabled:opacity-40"
                   >
-                    {enrichingArtistId === artistId ? "Enriqueciendo…" : enrichment ? "Reenriquecer" : "Enriquecer artista"}
+                    {enrichingArtistId === artistId
+                      ? "Enriqueciendo…"
+                      : working
+                        ? "Automático…"
+                        : state?.status === "failed"
+                          ? "Reintentar"
+                          : "Reenriquecer"}
                   </button>
                 </div>
               );

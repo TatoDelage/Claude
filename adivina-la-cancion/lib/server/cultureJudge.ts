@@ -1,7 +1,7 @@
 import type { CultureChallenge, CultureCondition } from "../cultureChallenges";
 import { canonicalInstrumentFromLabel } from "../instrumentTaxonomy";
-import { normalizeMusicText, ingestSpotifyTrackById } from "./musicIngestion";
-import { searchSpotifyTracks, getSpotifyTrack, type SpotifyTrackCandidate } from "./spotifyCatalog";
+import { ingestSpotifyTrackById, normalizeMusicText } from "./musicIngestion";
+import { getSpotifyTrack, searchSpotifyTracks, type SpotifyTrackCandidate } from "./spotifyCatalog";
 import { runArtistEnrichmentIfNeeded } from "./artistEnrichmentState";
 import { runSongEnrichmentIfNeeded } from "./songEnrichmentState";
 import { verifyLyricsFact } from "./lyricsFactVerification";
@@ -66,10 +66,15 @@ type JudgeContext = {
   artistFacts: FactRow[];
 };
 
+type ResolvedAnswer = {
+  candidate?: SpotifyTrackCandidate;
+  alternatives: SpotifyTrackCandidate[];
+};
+
 const COUNTRY_CODES: Record<string, string> = {
   spain: "ES", espana: "ES",
   usa: "US", us: "US", "united states": "US", "estados unidos": "US",
-  uk: "GB", "united kingdom": "GB", reino_unido: "GB",
+  uk: "GB", "united kingdom": "GB", "reino unido": "GB",
   mexico: "MX", argentina: "AR", colombia: "CO", "puerto rico": "PR",
   "dominican republic": "DO", "republica dominicana": "DO", brazil: "BR", brasil: "BR",
   italy: "IT", italia: "IT", france: "FR", francia: "FR", germany: "DE", alemania: "DE",
@@ -104,17 +109,13 @@ function candidateView(candidate: SpotifyTrackCandidate): CultureJudgeCandidate 
   };
 }
 
-function normalizedWords(value: string) {
-  return normalizeMusicText(value).split(" ").filter(Boolean);
-}
-
 function containsPhrase(value: string, phrase: string) {
   const haystack = ` ${normalizeMusicText(value)} `;
   const needle = normalizeMusicText(phrase);
   return Boolean(needle && haystack.includes(` ${needle} `));
 }
 
-function pickCandidate(candidates: SpotifyTrackCandidate[], title: string, artist?: string) {
+function pickCandidate(candidates: SpotifyTrackCandidate[], title: string, artist?: string): ResolvedAnswer {
   const normalizedTitle = normalizeMusicText(title);
   const normalizedArtist = artist ? normalizeMusicText(artist) : undefined;
   let exact = candidates.filter((candidate) => normalizeMusicText(candidate.title) === normalizedTitle);
@@ -125,29 +126,28 @@ function pickCandidate(candidates: SpotifyTrackCandidate[], title: string, artis
     );
   }
 
-  if (exact.length === 1) return { candidate: exact[0] };
+  if (exact.length === 1) return { candidate: exact[0], alternatives: [] };
   if (exact.length > 1) {
-    const signatures = new Map<string, SpotifyTrackCandidate>();
+    const unique = new Map<string, SpotifyTrackCandidate>();
     for (const candidate of exact) {
       const artistSignature = candidate.artists.map((item) => normalizeMusicText(item.name)).join("|");
-      const recordingSignature = candidate.isrc || `${normalizeMusicText(candidate.title)}|${artistSignature}`;
-      if (!signatures.has(recordingSignature)) signatures.set(recordingSignature, candidate);
+      const signature = candidate.isrc || `${normalizeMusicText(candidate.title)}|${artistSignature}`;
+      if (!unique.has(signature)) unique.set(signature, candidate);
     }
-    const unique = [...signatures.values()];
-    if (unique.length === 1) return { candidate: unique[0] };
-    return { ambiguous: unique.slice(0, 3) };
+    const recordings = [...unique.values()];
+    if (recordings.length === 1) return { candidate: recordings[0], alternatives: [] };
+    return { alternatives: recordings.slice(0, 3) };
   }
 
-  return { ambiguous: candidates.slice(0, 3) };
+  return { alternatives: candidates.slice(0, 3) };
 }
 
-async function resolveAnswer(input: { answerTitle?: string; answerArtist?: string; spotifyId?: string }) {
-  if (input.spotifyId) return { candidate: await getSpotifyTrack(input.spotifyId) };
+async function resolveAnswer(input: { answerTitle?: string; answerArtist?: string; spotifyId?: string }): Promise<ResolvedAnswer> {
+  if (input.spotifyId) return { candidate: await getSpotifyTrack(input.spotifyId), alternatives: [] };
   const title = input.answerTitle?.trim() ?? "";
-  if (title.length < 2) return { candidates: [] as SpotifyTrackCandidate[] };
+  if (title.length < 2) return { alternatives: [] };
   const candidates = await searchSpotifyTracks(title, input.answerArtist?.trim() || undefined);
-  const picked = pickCandidate(candidates, title, input.answerArtist?.trim() || undefined);
-  return { ...picked, candidates };
+  return pickCandidate(candidates, title, input.answerArtist?.trim() || undefined);
 }
 
 function conditionNeedsArtistEnrichment(condition: CultureCondition) {
@@ -155,7 +155,8 @@ function conditionNeedsArtistEnrichment(condition: CultureCondition) {
 }
 
 function conditionNeedsSongEnrichment(condition: CultureCondition) {
-  return ["language", "soundtrack_kind", "eurovision", "cover_version", "instrument_present"].includes(condition.type);
+  return ["language", "soundtrack_kind", "eurovision", "cover_version", "instrument_present"].includes(condition.type)
+    || (condition.type === "lyrics_contains" && Boolean(condition.language));
 }
 
 async function prepareEnrichment(challenge: CultureChallenge, artistIds: string[], songId: string, warnings: string[]) {
@@ -182,30 +183,20 @@ async function loadJudgeContext(songId: string, primaryArtistId?: string): Promi
     `${url}/rest/v1/music_songs?id=eq.${encodeURIComponent(songId)}&select=id,title,release_year,language_codes&limit=1`,
     { headers, cache: "no-store" },
   );
-  const artistPromise = primaryArtistId
-    ? fetch(
-        `${url}/rest/v1/music_artists?id=eq.${encodeURIComponent(primaryArtistId)}&select=id,name,artist_type,origin_country_code,origin_regions&limit=1`,
-        { headers, cache: "no-store" },
-      )
-    : Promise.resolve(undefined);
   const songFactsPromise = fetch(
     `${url}/rest/v1/music_facts?song_id=eq.${encodeURIComponent(songId)}&status=in.(verified,rejected)&select=predicate,value_text,value_bool,status,confidence`,
     { headers, cache: "no-store" },
   );
+  const artistPromise = primaryArtistId
+    ? fetch(`${url}/rest/v1/music_artists?id=eq.${encodeURIComponent(primaryArtistId)}&select=id,name,artist_type,origin_country_code,origin_regions&limit=1`, { headers, cache: "no-store" })
+    : Promise.resolve(undefined);
   const artistFactsPromise = primaryArtistId
-    ? fetch(
-        `${url}/rest/v1/music_facts?artist_id=eq.${encodeURIComponent(primaryArtistId)}&status=in.(verified,rejected)&select=predicate,value_text,value_bool,status,confidence`,
-        { headers, cache: "no-store" },
-      )
+    ? fetch(`${url}/rest/v1/music_facts?artist_id=eq.${encodeURIComponent(primaryArtistId)}&status=in.(verified,rejected)&select=predicate,value_text,value_bool,status,confidence`, { headers, cache: "no-store" })
     : Promise.resolve(undefined);
 
-  const [songResponse, artistResponse, songFactsResponse, artistFactsResponse] = await Promise.all([
-    songPromise,
-    artistPromise,
-    songFactsPromise,
-    artistFactsPromise,
+  const [songResponse, songFactsResponse, artistResponse, artistFactsResponse] = await Promise.all([
+    songPromise, songFactsPromise, artistPromise, artistFactsPromise,
   ]);
-
   if (!songResponse.ok) throw new Error(`No se pudo cargar la canción (${songResponse.status})`);
   if (!songFactsResponse.ok) throw new Error(`No se pudieron cargar hechos de canción (${songFactsResponse.status})`);
   if (artistResponse && !artistResponse.ok) throw new Error(`No se pudo cargar el artista (${artistResponse.status})`);
@@ -213,10 +204,12 @@ async function loadJudgeContext(songId: string, primaryArtistId?: string): Promi
 
   const song = ((await songResponse.json()) as SongRow[])[0];
   if (!song) throw new Error("Canción no encontrada después de importarla");
-  const primaryArtist = artistResponse ? ((await artistResponse.json()) as ArtistRow[])[0] : undefined;
-  const songFacts = (await songFactsResponse.json()) as FactRow[];
-  const artistFacts = artistFactsResponse ? ((await artistFactsResponse.json()) as FactRow[]) : [];
-  return { song, primaryArtist, songFacts, artistFacts };
+  return {
+    song,
+    primaryArtist: artistResponse ? ((await artistResponse.json()) as ArtistRow[])[0] : undefined,
+    songFacts: (await songFactsResponse.json()) as FactRow[],
+    artistFacts: artistFactsResponse ? ((await artistFactsResponse.json()) as FactRow[]) : [],
+  };
 }
 
 function reliableFact(fact: FactRow) {
@@ -237,7 +230,10 @@ function countryCodeForRegion(region: string) {
   return COUNTRY_CODES[normalizeMusicText(region)];
 }
 
-function evaluateArtistOrigin(condition: Extract<CultureCondition, { type: "artist_origin" }>, context: JudgeContext): CultureConditionDecision {
+function evaluateArtistOrigin(
+  condition: Extract<CultureCondition, { type: "artist_origin" }>,
+  context: JudgeContext,
+): CultureConditionDecision {
   const artist = context.primaryArtist;
   if (!artist) return { conditionType: condition.type, status: "unverifiable", reason: "No existe un artista principal identificable" };
 
@@ -262,32 +258,24 @@ function evaluateArtistOrigin(condition: Extract<CultureCondition, { type: "arti
   if (regions.some((region) => normalizeMusicText(region) === desired)) {
     return { conditionType: condition.type, status: "valid", reason: `${artist.name} tiene origen verificado en ${condition.region}`, source: "catálogo enriquecido" };
   }
-
-  return {
-    conditionType: condition.type,
-    status: "unverifiable",
-    reason: `No hay datos suficientemente completos para verificar que ${artist.name} sea de ${condition.region}`,
-  };
+  return { conditionType: condition.type, status: "unverifiable", reason: `No hay datos suficientemente completos para verificar que ${artist.name} sea de ${condition.region}` };
 }
 
-function evaluateTitleEntity(condition: Extract<CultureCondition, { type: "title_entity" }>, title: string): CultureConditionDecision {
+function evaluateTitleEntity(
+  condition: Extract<CultureCondition, { type: "title_entity" }>,
+  title: string,
+): CultureConditionDecision {
   const normalized = normalizeMusicText(title);
   if (condition.entity === "number") {
     const numberWords = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "cero", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez"];
     const valid = /\d/.test(title) || numberWords.some((word) => (` ${normalized} `).includes(` ${word} `));
     return { conditionType: condition.type, status: valid ? "valid" : "invalid", reason: valid ? "El título contiene un número" : "El título no contiene un número reconocible", source: "título canónico" };
   }
-
   if (condition.entity === "color" || condition.entity === "weekday" || condition.entity === "month") {
     const valid = TITLE_ENTITY_WORDS[condition.entity].some((word) => (` ${normalized} `).includes(` ${word} `));
     return { conditionType: condition.type, status: valid ? "valid" : "invalid", reason: valid ? `El título contiene ${condition.entity}` : `El título no contiene ${condition.entity} reconocible`, source: "título canónico" };
   }
-
-  return {
-    conditionType: condition.type,
-    status: "unverifiable",
-    reason: `La detección automática de ${condition.entity} en títulos todavía no está habilitada en la v1`,
-  };
+  return { conditionType: condition.type, status: "unverifiable", reason: `La detección automática de ${condition.entity} en títulos todavía no está habilitada en la v1` };
 }
 
 async function evaluateCondition(
@@ -303,9 +291,14 @@ async function evaluateCondition(
     case "lyrics_contains": {
       try {
         const result = await verifyLyricsFact(context.song.id, condition.value);
-        if (result.status === "verified") return { conditionType: condition.type, status: "valid", reason: result.reason, source: result.provider };
         if (result.status === "rejected") return { conditionType: condition.type, status: "invalid", reason: result.reason, source: result.provider };
-        return { conditionType: condition.type, status: "unverifiable", reason: result.reason, source: result.provider };
+        if (result.status !== "verified") return { conditionType: condition.type, status: "unverifiable", reason: result.reason, source: result.provider };
+        if (condition.language) {
+          const languages = context.song.language_codes ?? [];
+          if (!languages.length) return { conditionType: condition.type, status: "unverifiable", reason: `${result.reason}, pero el idioma todavía no está verificado`, source: result.provider };
+          if (!languages.includes(condition.language)) return { conditionType: condition.type, status: "invalid", reason: `${result.reason}, pero el idioma verificado es ${languages.join(", ")}`, source: `${result.provider} + catálogo` };
+        }
+        return { conditionType: condition.type, status: "valid", reason: result.reason, source: result.provider };
       } catch (error) {
         return { conditionType: condition.type, status: "unverifiable", reason: error instanceof Error ? error.message : "No se pudo verificar la letra" };
       }
@@ -333,10 +326,10 @@ async function evaluateCondition(
       if (verifiedBoolean(context.artistFacts, "artist_has_sibling_member")) return { conditionType: condition.type, status: "valid", reason: "Existe una relación verificada de hermanos dentro del artista/grupo", source: "catálogo enriquecido" };
       return { conditionType: condition.type, status: "unverifiable", reason: "No existe todavía evidencia suficiente sobre hermanos en este artista/grupo" };
     }
-    case "former_group_member": {
-      if (verifiedBoolean(context.artistFacts, "artist_former_group_member")) return { conditionType: condition.type, status: "valid", reason: "El catálogo acredita pertenencia anterior a un grupo", source: "catálogo enriquecido" };
-      return { conditionType: condition.type, status: "unverifiable", reason: "No existe todavía evidencia suficiente sobre pertenencia anterior a un grupo" };
-    }
+    case "former_group_member":
+      return verifiedBoolean(context.artistFacts, "artist_former_group_member")
+        ? { conditionType: condition.type, status: "valid", reason: "El catálogo acredita pertenencia anterior a un grupo", source: "catálogo enriquecido" }
+        : { conditionType: condition.type, status: "unverifiable", reason: "No existe todavía evidencia suficiente sobre pertenencia anterior a un grupo" };
     case "instrument_present": {
       const instrument = canonicalInstrumentFromLabel(condition.instrument);
       if (!instrument) return { conditionType: condition.type, status: "unverifiable", reason: `El instrumento «${condition.instrument}» no pertenece todavía a la taxonomía soportada` };
@@ -352,9 +345,7 @@ async function evaluateCondition(
     case "release_period": {
       const year = context.song.release_year ?? Number.parseInt(candidate.releaseDate?.slice(0, 4) ?? "", 10);
       if (!Number.isFinite(year)) return { conditionType: condition.type, status: "unverifiable", reason: "No hay un año de publicación utilizable" };
-      const afterStart = condition.yearFrom == null || year >= condition.yearFrom;
-      const beforeEnd = condition.yearTo == null || year <= condition.yearTo;
-      const valid = afterStart && beforeEnd;
+      const valid = (condition.yearFrom == null || year >= condition.yearFrom) && (condition.yearTo == null || year <= condition.yearTo);
       return { conditionType: condition.type, status: valid ? "valid" : "invalid", reason: `Año de publicación usado por el catálogo: ${year}`, source: "Spotify/catálogo" };
     }
     case "language": {
@@ -372,8 +363,8 @@ async function evaluateCondition(
     case "eurovision": {
       if (!verifiedBoolean(context.songFacts, "song_eurovision")) return { conditionType: condition.type, status: "unverifiable", reason: "No existe una relación positiva de Eurovisión suficientemente verificada" };
       if (condition.country) {
-        const originDecision = evaluateArtistOrigin({ type: "artist_origin", region: condition.country }, context);
-        if (originDecision.status !== "valid") return { conditionType: condition.type, status: originDecision.status, reason: `Eurovisión está verificado, pero el país no: ${originDecision.reason}`, source: "Wikidata/catálogo" };
+        const origin = evaluateArtistOrigin({ type: "artist_origin", region: condition.country }, context);
+        if (origin.status !== "valid") return { conditionType: condition.type, status: origin.status, reason: `Eurovisión está verificado, pero el país no: ${origin.reason}`, source: "Wikidata/catálogo" };
       }
       return { conditionType: condition.type, status: "valid", reason: "La canción tiene participación en Eurovisión verificada", source: "Wikidata/catálogo" };
     }
@@ -381,10 +372,10 @@ async function evaluateCondition(
       const valid = candidate.artists.length > 1;
       return { conditionType: condition.type, status: valid ? "valid" : "invalid", reason: valid ? `Spotify acredita ${candidate.artists.length} artistas` : "Spotify acredita un solo artista", source: "Spotify" };
     }
-    case "cover_version": {
-      if (verifiedBoolean(context.songFacts, "song_is_cover")) return { conditionType: condition.type, status: "valid", reason: "MusicBrainz marca explícitamente esta grabación como cover", source: "MusicBrainz/catálogo" };
-      return { conditionType: condition.type, status: "unverifiable", reason: "No existe evidencia positiva suficiente para confirmar que sea una versión; ausencia de dato no se trata como falso" };
-    }
+    case "cover_version":
+      return verifiedBoolean(context.songFacts, "song_is_cover")
+        ? { conditionType: condition.type, status: "valid", reason: "MusicBrainz marca explícitamente esta grabación como cover", source: "MusicBrainz/catálogo" }
+        : { conditionType: condition.type, status: "unverifiable", reason: "No existe evidencia positiva suficiente para confirmar que sea una versión; ausencia de dato no se trata como falso" };
   }
 }
 
@@ -406,7 +397,7 @@ export async function judgeCultureAnswer(input: {
 
   const resolution = await resolveAnswer(input);
   if (!resolution.candidate) {
-    const candidates = (resolution.ambiguous ?? resolution.candidates ?? []).map(candidateView);
+    const candidates = resolution.alternatives.map(candidateView);
     if (!candidates.length) {
       return {
         status: "not_found",

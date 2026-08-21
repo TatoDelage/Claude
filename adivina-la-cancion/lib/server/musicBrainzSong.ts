@@ -1,3 +1,5 @@
+import { canonicalInstrumentFromLabel, type CanonicalInstrument } from "../instrumentTaxonomy";
+
 type MbArtistCredit = {
   artist?: { id?: string; name?: string };
   name?: string;
@@ -17,6 +19,9 @@ type MbWork = {
 type MbRelation = {
   type?: string;
   attributes?: string[];
+  "attribute-values"?: Record<string, string>;
+  "attribute-credits"?: Record<string, string>;
+  artist?: { id?: string; name?: string };
   work?: MbWork;
   url?: MbUrl;
 };
@@ -31,9 +36,17 @@ type MbRecording = {
 };
 
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
-const USER_AGENT = "AdivinaLaCancion/0.3 (https://claude-blue-tau.vercel.app)";
+const USER_AGENT = "AdivinaLaCancion/0.4 (https://claude-blue-tau.vercel.app)";
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = 4;
+const NON_INSTRUMENT_ATTRIBUTES = new Set([
+  "additional",
+  "guest",
+  "solo",
+  "instrument",
+  "start date",
+  "end date",
+]);
 let lastRequestAt = 0;
 
 function sleep(ms: number) {
@@ -138,7 +151,7 @@ async function recordingFromSearch(title: string, artists: string[]) {
 }
 
 async function lookupRecording(mbid: string) {
-  const params = new URLSearchParams({ inc: "artist-credits+isrcs+work-rels+url-rels+genres", fmt: "json" });
+  const params = new URLSearchParams({ inc: "artist-credits+isrcs+work-rels+url-rels+genres+artist-rels", fmt: "json" });
   return mbFetch<MbRecording>(`/recording/${encodeURIComponent(mbid)}?${params.toString()}`);
 }
 
@@ -154,6 +167,54 @@ function wikidataIdFromRelations(relations?: MbRelation[]) {
   return url?.match(/\/wiki\/(Q\d+)/i)?.[1]?.toUpperCase();
 }
 
+export type MusicBrainzInstrumentCredit = {
+  instrument: CanonicalInstrument;
+  rawInstrument: string;
+  performerName?: string;
+  performerMbid?: string;
+};
+
+function instrumentLabelsFromRelation(relation: MbRelation) {
+  const labels = new Set<string>();
+
+  for (const attribute of relation.attributes ?? []) {
+    if (!NON_INSTRUMENT_ATTRIBUTES.has(attribute.toLowerCase())) labels.add(attribute);
+  }
+
+  for (const value of Object.values(relation["attribute-values"] ?? {})) {
+    if (value && !NON_INSTRUMENT_ATTRIBUTES.has(value.toLowerCase())) labels.add(value);
+  }
+
+  return [...labels];
+}
+
+function extractInstrumentCredits(recording: MbRecording): MusicBrainzInstrumentCredit[] {
+  const credits: MusicBrainzInstrumentCredit[] = [];
+  const seen = new Set<string>();
+
+  for (const relation of recording.relations ?? []) {
+    if (relation.type !== "instrument") continue;
+
+    for (const rawInstrument of instrumentLabelsFromRelation(relation)) {
+      const instrument = canonicalInstrumentFromLabel(rawInstrument);
+      if (!instrument) continue;
+
+      const performerMbid = relation.artist?.id;
+      const key = `${instrument}|${performerMbid ?? relation.artist?.name ?? "unknown"}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      credits.push({
+        instrument,
+        rawInstrument,
+        performerName: relation.artist?.name,
+        performerMbid,
+      });
+    }
+  }
+
+  return credits;
+}
+
 export type ResolvedMusicBrainzSong = {
   recordingMbid: string;
   recordingTitle: string;
@@ -162,6 +223,7 @@ export type ResolvedMusicBrainzSong = {
   workLanguages: string[];
   isCover: boolean;
   isInstrumental: boolean;
+  instrumentCredits: MusicBrainzInstrumentCredit[];
   wikidataId?: string;
   sourceUrl: string;
   workSourceUrl?: string;
@@ -216,6 +278,7 @@ export async function resolveMusicBrainzSong(input: {
     workLanguages: languages,
     isCover: attributes.has("cover"),
     isInstrumental: attributes.has("instrumental"),
+    instrumentCredits: extractInstrumentCredits(recording),
     wikidataId: wikidataIdFromRelations(work?.relations) ?? wikidataIdFromRelations(recording.relations),
     sourceUrl: `https://musicbrainz.org/recording/${recordingMbid}`,
     workSourceUrl: work?.id ? `https://musicbrainz.org/work/${work.id}` : undefined,

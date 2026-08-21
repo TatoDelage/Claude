@@ -46,22 +46,30 @@ export default function GameContent() {
     router.push(ROUTES[roundNumber]);
   };
   const toggleDev = () => { const next = !devMode; setDevMode(next); localStorage.setItem(DEV_KEY, next ? "1" : "0"); };
+  const handleFinish = () => {
+    if (window.confirm("¿Terminar la partida y mostrar el resultado final?")) setShowVictory(true);
+  };
 
   return (
     <main className="game-stage min-h-screen text-cream-50">
       <header className="sticky top-0 z-10 bg-canvas-950/80 backdrop-blur-xl border-b border-canvas-700/45 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0"><span className="text-sm font-black truncate">🎵 Adivina la Canción</span>{activeRound && <span className="text-xs game-muted truncate">R{activeRound.number} · {activeRound.name}</span>}{devMode && <span className="text-[10px] font-black text-gold-300">DEV</span>}</div>
-        <div className="flex gap-3"><button onClick={toggleDev} className="text-[10px] text-zinc-600">⚙ dev</button>{!inLobby && <button onClick={() => setShowVictory(true)} className="text-xs text-zinc-600">Terminar</button>}</div>
+        <div className="flex gap-3"><button onClick={toggleDev} className="text-[10px] text-zinc-600">⚙ dev</button>{!inLobby && <button onClick={handleFinish} className="text-xs text-zinc-600">Terminar</button>}</div>
       </header>
 
       {inLobby ? <HostLobby onStarted={handleStartGame} /> : <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-        {activeRound && <section className="game-panel rounded-[2rem] p-5 flex items-center justify-between gap-4"><div className="flex items-center gap-4 min-w-0"><div className="w-12 h-12 rounded-2xl bg-gold-300/[0.08] border border-gold-300/15 flex items-center justify-center text-2xl">{ICONS[activeRound.number]}</div><div className="min-w-0"><p className="game-kicker">En curso · Ronda {activeRound.number}</p><p className="game-title text-2xl truncate mt-1">{activeRound.name}</p><p className="text-xs game-muted mt-1 truncate">{activeRound.shortDesc}</p></div></div><button onClick={() => router.push(ROUTES[activeRound.number])} className="game-primary px-4 py-3 rounded-2xl text-xs font-black flex-shrink-0">{LABELS[activeRound.number]}</button></section>}
+        {activeRound && <section className="game-panel rounded-[2rem] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div className="flex items-center gap-4 min-w-0"><div className="w-12 h-12 rounded-2xl bg-gold-300/[0.08] border border-gold-300/15 flex items-center justify-center text-2xl">{ICONS[activeRound.number]}</div><div className="min-w-0"><p className="game-kicker">En curso · Ronda {activeRound.number}</p><p className="game-title text-2xl truncate mt-1">{activeRound.name}</p><p className="text-xs game-muted mt-1 sm:truncate">{activeRound.shortDesc}</p></div></div><button onClick={() => router.push(ROUTES[activeRound.number])} className="game-primary w-full sm:w-auto px-4 py-3 rounded-2xl text-xs font-black flex-shrink-0">{LABELS[activeRound.number]}</button></section>}
 
-        {canUseSuper && <section className="rounded-2xl border border-gold-300/20 bg-gold-300/[0.04] p-4"><p className="text-xs uppercase tracking-widest text-gold-300 font-black">⭐ Supercomodín</p><p className="text-sm game-muted mt-1">Puede usarse aquí entre rondas por un equipo que vaya perdiendo. No consume el límite de 1 comodín de la ronda.</p></section>}
+        {canUseSuper && <section className="rounded-2xl border border-gold-300/20 bg-gold-300/[0.04] p-4"><p className="text-xs uppercase tracking-widest text-gold-300 font-black">⭐ Supercomodín</p><p className="text-sm game-muted mt-1">Solo puede usarlo un equipo que vaya perdiendo. Pulsa su botón de Supercomodín en el marcador.</p></section>}
 
         {devMode && <div className="rounded-2xl border border-gold-300/15 p-3 flex flex-wrap gap-2">{Object.keys(ROUTES).map((value) => { const round = Number(value); return <button key={round} onClick={() => jumpToRound(round)} className="px-3 py-1.5 rounded-xl bg-canvas-800 text-xs font-bold">R{round}</button>; })}</div>}
 
-        <Scoreboard teams={game.teams} onWildcard={(teamId) => setWildcardTeamId(teamId)} />
+        <Scoreboard
+          teams={game.teams}
+          onWildcard={canUseSuper ? (teamId) => setWildcardTeamId(teamId) : undefined}
+          wildcardIds={["supercomodin"]}
+          wildcardLabel="⭐ Supercomodín"
+        />
         <div className="border-t border-canvas-700/40" />
         <RoundTracker rounds={game.rounds} />
       </div>}

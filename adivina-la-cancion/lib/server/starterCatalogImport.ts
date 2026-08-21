@@ -76,27 +76,50 @@ function resolveCandidate(candidates: SpotifyTrackCandidate[], title: string, ar
 
 async function markStarterSeed(songId: string, seedId: string) {
   const { url, headers } = supabaseServiceConfig();
-  const response = await fetch(
-    `${url}/rest/v1/music_external_ids?on_conflict=provider,external_id`,
-    {
-      method: "POST",
-      headers: {
-        ...headers,
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify({
-        song_id: songId,
-        artist_id: null,
-        provider: "starter-catalog",
-        external_id: seedId,
-      }),
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`No se pudo marcar la semilla del catálogo (${response.status}): ${detail.slice(0, 220)}`);
+  const query = new URLSearchParams({
+    provider: "eq.starter-catalog",
+    external_id: `eq.${seedId}`,
+    select: "id,song_id",
+    limit: "1",
+  });
+
+  const existingResponse = await fetch(`${url}/rest/v1/music_external_ids?${query.toString()}`, {
+    headers,
+    cache: "no-store",
+  });
+  if (!existingResponse.ok) {
+    const detail = await existingResponse.text();
+    throw new Error(`No se pudo comprobar la semilla del catálogo (${existingResponse.status}): ${detail.slice(0, 220)}`);
   }
+
+  const existing = (await existingResponse.json()) as Array<{ id: string; song_id?: string | null }>;
+  if (existing[0]) {
+    if (existing[0].song_id && existing[0].song_id !== songId) {
+      throw new Error(`La semilla ${seedId} ya está asociada a otra canción`);
+    }
+    return;
+  }
+
+  const response = await fetch(`${url}/rest/v1/music_external_ids`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      song_id: songId,
+      artist_id: null,
+      provider: "starter-catalog",
+      external_id: seedId,
+    }),
+    cache: "no-store",
+  });
+
+  if (response.ok) return;
+
+  const detail = await response.text();
+  if (response.status === 409 && detail.includes("23505")) return;
+  throw new Error(`No se pudo marcar la semilla del catálogo (${response.status}): ${detail.slice(0, 220)}`);
 }
 
 export async function importStarterSeed(seedId: string, spotifyId?: string): Promise<StarterImportResult> {

@@ -2,6 +2,7 @@ export type MusicProvider =
   | "spotify"
   | "musicbrainz"
   | "wikidata"
+  | "discogs"
   | "musixmatch"
   | "lrclib"
   | "instrumentation-index"
@@ -45,13 +46,19 @@ export const PROVIDER_RESPONSIBILITIES: ProviderResponsibility[] = [
     provider: "musicbrainz",
     role: "metadata",
     storesRawPayload: false,
-    notes: "Enrich artist areas, relationships, releases and cross-provider identifiers.",
+    notes: "Enrich artist areas, relationships, releases and recording-level instrument credits.",
   },
   {
     provider: "wikidata",
     role: "knowledge",
     storesRawPayload: false,
     notes: "Verify structured biographical/geographic facts and relationships not covered reliably by the music catalogue.",
+  },
+  {
+    provider: "discogs",
+    role: "instrumentation",
+    storesRawPayload: false,
+    notes: "Fallback for explicit track-level instrument credits when MusicBrainz has insufficient coverage; preserve only compact fact/evidence references.",
   },
   {
     provider: "lrclib",
@@ -69,7 +76,7 @@ export const PROVIDER_RESPONSIBILITIES: ProviderResponsibility[] = [
     provider: "instrumentation-index",
     role: "instrumentation",
     storesRawPayload: false,
-    notes: "Verify audible instruments such as harmonica, saxophone or violin through a curated/enriched index.",
+    notes: "Internal curated index that accumulates verified audible-instrument facts from trusted sources.",
   },
   {
     provider: "manual",

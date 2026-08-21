@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+type PipelineStatus = "pending" | "processing" | "enriched" | "failed";
+
 type Health = {
   spotifyConfigured: boolean;
   supabaseWriteConfigured: boolean;
@@ -28,7 +30,7 @@ type ImportResult = {
   track: Candidate;
 };
 
-type EnrichmentResult = {
+type ArtistEnrichmentResult = {
   artistId: string;
   artistName: string;
   artistType: "solo" | "group" | "duo" | "unknown";
@@ -41,13 +43,37 @@ type EnrichmentResult = {
   warnings: string[];
 };
 
-type EnrichmentState = {
+type ArtistEnrichmentState = {
   artistId: string;
   artistName: string;
-  status: "pending" | "processing" | "enriched" | "failed";
+  status: PipelineStatus;
   attemptedAt?: string;
   error?: string;
-  result?: EnrichmentResult;
+  result?: ArtistEnrichmentResult;
+};
+
+type SongEnrichmentResult = {
+  songId: string;
+  songTitle: string;
+  languageCodes: string[];
+  isCollaboration: boolean;
+  isCover: boolean;
+  isInstrumental: boolean;
+  eurovision: boolean;
+  soundtrackKinds: string[];
+  factsWritten: number;
+  externalIdsWritten: number;
+  sources: string[];
+  warnings: string[];
+};
+
+type SongEnrichmentState = {
+  songId: string;
+  songTitle: string;
+  status: PipelineStatus;
+  attemptedAt?: string;
+  error?: string;
+  result?: SongEnrichmentResult;
 };
 
 const STATUS_COPY = {
@@ -65,8 +91,10 @@ export default function MusicAdminPage() {
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [enrichingArtistId, setEnrichingArtistId] = useState<string | null>(null);
+  const [enrichingSong, setEnrichingSong] = useState(false);
   const [lastImport, setLastImport] = useState<ImportResult | null>(null);
-  const [enrichmentStates, setEnrichmentStates] = useState<Record<string, EnrichmentState>>({});
+  const [artistStates, setArtistStates] = useState<Record<string, ArtistEnrichmentState>>({});
+  const [songState, setSongState] = useState<SongEnrichmentState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,11 +108,10 @@ export default function MusicAdminPage() {
   useEffect(() => {
     if (!lastImport || !secret || lastImport.artistIds.length === 0) return;
     const currentImport = lastImport;
-
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    async function poll() {
+    async function pollArtists() {
       try {
         const entries = await Promise.all(
           currentImport.artistIds.map(async (artistId) => {
@@ -93,28 +120,56 @@ export default function MusicAdminPage() {
               cache: "no-store",
             });
             if (!response.ok) return [artistId, null] as const;
-            const payload = (await response.json()) as { state?: EnrichmentState };
+            const payload = (await response.json()) as { state?: ArtistEnrichmentState };
             return [artistId, payload.state ?? null] as const;
           }),
         );
 
         if (cancelled) return;
-        const next: Record<string, EnrichmentState> = {};
-        for (const [artistId, state] of entries) {
-          if (state) next[artistId] = state;
-        }
-        setEnrichmentStates((current) => ({ ...current, ...next }));
+        const next: Record<string, ArtistEnrichmentState> = {};
+        for (const [artistId, state] of entries) if (state) next[artistId] = state;
+        setArtistStates((current) => ({ ...current, ...next }));
 
-        const stillWorking = Object.values(next).some(
-          (state) => state.status === "pending" || state.status === "processing",
-        );
-        if (stillWorking) timer = setTimeout(poll, 1600);
+        if (Object.values(next).some((state) => state.status === "pending" || state.status === "processing")) {
+          timer = setTimeout(pollArtists, 1600);
+        }
       } catch {
-        if (!cancelled) timer = setTimeout(poll, 2500);
+        if (!cancelled) timer = setTimeout(pollArtists, 2500);
       }
     }
 
-    void poll();
+    void pollArtists();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [lastImport, secret]);
+
+  useEffect(() => {
+    if (!lastImport || !secret) return;
+    const currentImport = lastImport;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function pollSong() {
+      try {
+        const response = await fetch(`/api/music/enrich-song?songId=${encodeURIComponent(currentImport.songId)}`, {
+          headers: { "x-music-admin-secret": secret },
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error("No se pudo consultar el enriquecimiento de canción");
+        const payload = (await response.json()) as { state?: SongEnrichmentState };
+        if (cancelled || !payload.state) return;
+        setSongState(payload.state);
+        if (payload.state.status === "pending" || payload.state.status === "processing") {
+          timer = setTimeout(pollSong, 1800);
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(pollSong, 2800);
+      }
+    }
+
+    timer = setTimeout(pollSong, 700);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
@@ -129,10 +184,7 @@ export default function MusicAdminPage() {
     try {
       const response = await fetch("/api/music/search", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-music-admin-secret": secret,
-        },
+        headers: { "Content-Type": "application/json", "x-music-admin-secret": secret },
         body: JSON.stringify({ title, artist: artist || undefined }),
       });
       const payload = (await response.json()) as { results?: Candidate[]; error?: string };
@@ -154,10 +206,7 @@ export default function MusicAdminPage() {
     try {
       const response = await fetch("/api/music/import", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-music-admin-secret": secret,
-        },
+        headers: { "Content-Type": "application/json", "x-music-admin-secret": secret },
         body: JSON.stringify({ spotifyId: candidate.spotifyId }),
       });
       const payload = (await response.json()) as {
@@ -167,18 +216,20 @@ export default function MusicAdminPage() {
       };
       if (!response.ok || !payload.result) throw new Error(payload.error || "No se pudo importar");
 
-      const pendingStates: Record<string, EnrichmentState> = {};
-      payload.result.artistIds.forEach((artistId, index) => {
-        pendingStates[artistId] = {
+      const imported = payload.result;
+      const pendingArtists: Record<string, ArtistEnrichmentState> = {};
+      imported.artistIds.forEach((artistId, index) => {
+        pendingArtists[artistId] = {
           artistId,
-          artistName: payload.result?.track.artists[index]?.name ?? artistId,
+          artistName: imported.track.artists[index]?.name ?? artistId,
           status: "pending",
         };
       });
-      setEnrichmentStates(pendingStates);
-      setLastImport(payload.result);
+      setArtistStates(pendingArtists);
+      setSongState({ songId: imported.songId, songTitle: imported.track.title, status: "pending" });
+      setLastImport(imported);
       setMessage(
-        `${STATUS_COPY[payload.result.status]} · ${payload.result.track.title}` +
+        `${STATUS_COPY[imported.status]} · ${imported.track.title}` +
           (payload.enrichmentScheduled ? " · enriquecimiento automático iniciado" : ""),
       );
     } catch (importError) {
@@ -188,33 +239,51 @@ export default function MusicAdminPage() {
     }
   }
 
-  async function enrichImportedArtist(artistId: string) {
+  async function retryArtist(artistId: string) {
     setError(null);
-    setMessage(null);
     setEnrichingArtistId(artistId);
     try {
       const response = await fetch("/api/music/enrich-artist", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-music-admin-secret": secret,
-        },
+        headers: { "Content-Type": "application/json", "x-music-admin-secret": secret },
         body: JSON.stringify({ artistId }),
       });
-      const payload = (await response.json()) as {
-        state?: EnrichmentState;
-        result?: EnrichmentResult;
-        error?: string;
-      };
+      const payload = (await response.json()) as { state?: ArtistEnrichmentState; error?: string };
       if (!response.ok || !payload.state) throw new Error(payload.error || "No se pudo enriquecer el artista");
-      setEnrichmentStates((current) => ({ ...current, [artistId]: payload.state as EnrichmentState }));
-      if (payload.result) {
-        setMessage(`Enriquecido · ${payload.result.artistName} · ${payload.result.factsWritten} hechos verificados`);
-      }
-    } catch (enrichmentError) {
-      setError(enrichmentError instanceof Error ? enrichmentError.message : "No se pudo enriquecer el artista");
+      setArtistStates((current) => ({ ...current, [artistId]: payload.state as ArtistEnrichmentState }));
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "No se pudo enriquecer el artista");
     } finally {
       setEnrichingArtistId(null);
+    }
+  }
+
+  async function retrySong() {
+    if (!lastImport) return;
+    setError(null);
+    setEnrichingSong(true);
+    setSongState((current) => current ? { ...current, status: "processing", error: undefined } : current);
+    try {
+      const response = await fetch("/api/music/enrich-song", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-music-admin-secret": secret },
+        body: JSON.stringify({ songId: lastImport.songId }),
+      });
+      const payload = (await response.json()) as { state?: SongEnrichmentState; error?: string };
+      if (!response.ok || !payload.state) throw new Error(payload.error || "No se pudo enriquecer la canción");
+      setSongState(payload.state);
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "No se pudo enriquecer la canción");
+      const response = await fetch(`/api/music/enrich-song?songId=${encodeURIComponent(lastImport.songId)}`, {
+        headers: { "x-music-admin-secret": secret },
+        cache: "no-store",
+      }).catch(() => null);
+      if (response?.ok) {
+        const payload = (await response.json()) as { state?: SongEnrichmentState };
+        if (payload.state) setSongState(payload.state);
+      }
+    } finally {
+      setEnrichingSong(false);
     }
   }
 
@@ -226,23 +295,19 @@ export default function MusicAdminPage() {
         <header>
           <p className="game-kicker">Laboratorio interno</p>
           <h1 className="game-title text-4xl mt-2">Catálogo musical</h1>
-          <p className="game-muted mt-3">Busca una canción en Spotify. La identidad se guarda al instante y sus artistas se enriquecen automáticamente en segundo plano.</p>
+          <p className="game-muted mt-3">Busca una canción en Spotify. La identidad, sus artistas y la propia canción se enriquecen automáticamente con fuentes verificables.</p>
         </header>
 
         <section className="game-panel rounded-[2rem] p-5">
           <p className="font-black mb-3">Estado del pipeline</p>
-          {!health ? (
-            <p className="game-muted text-sm">Comprobando configuración…</p>
-          ) : (
+          {!health ? <p className="game-muted text-sm">Comprobando configuración…</p> : (
             <div className="grid sm:grid-cols-3 gap-2 text-sm">
               <Status label="Spotify" ok={health.spotifyConfigured} />
               <Status label="Supabase escritura" ok={health.supabaseWriteConfigured} />
               <Status label="Clave admin" ok={health.adminSecretConfigured} />
             </div>
           )}
-          {health && !ready && (
-            <p className="mt-3 text-sm text-amber-200">Faltan variables de entorno. La ingesta seguirá bloqueada hasta configurarlas.</p>
-          )}
+          {health && !ready && <p className="mt-3 text-sm text-amber-200">Faltan variables de entorno. La ingesta seguirá bloqueada hasta configurarlas.</p>}
         </section>
 
         <form onSubmit={search} className="game-panel rounded-[2rem] p-5 space-y-4">
@@ -275,13 +340,11 @@ export default function MusicAdminPage() {
               <h2 className="font-black text-xl mt-1">Enriquecimiento de artistas</h2>
               <p className="game-muted text-sm mt-1">MusicBrainz resuelve identidad, tipo, origen y géneros. Wikidata confirma datos cuando existe enlace estructurado.</p>
             </div>
-
             {lastImport.artistIds.map((artistId, index) => {
-              const state = enrichmentStates[artistId];
+              const state = artistStates[artistId];
               const enrichment = state?.result;
               const artistName = lastImport.track.artists[index]?.name ?? state?.artistName ?? artistId;
               const working = state?.status === "pending" || state?.status === "processing";
-
               return (
                 <div key={artistId} className="rounded-2xl border border-canvas-600/60 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
                   <div>
@@ -291,35 +354,51 @@ export default function MusicAdminPage() {
                         <p>{enrichment.artistType} · {enrichment.originCountryCode ?? "sin país"}{enrichment.originRegions.length ? ` · ${enrichment.originRegions.join(", ")}` : ""}</p>
                         <p>{enrichment.genreCodes.length ? enrichment.genreCodes.join(" · ") : "sin géneros canónicos"} · fuentes: {enrichment.sources.join(" + ") || "sin fuente externa"}</p>
                         <p className="text-emerald-200">✓ {enrichment.factsWritten} hechos verificados</p>
-                        {enrichment.warnings.map((warning) => <p key={warning} className="text-amber-200">⚠ {warning}</p>)}
                       </div>
                     ) : state?.status === "failed" ? (
-                      <div className="text-sm mt-1">
-                        <p className="text-rose-200">✕ Enriquecimiento automático fallido</p>
-                        {state.error && <p className="game-muted text-xs mt-1">{state.error}</p>}
-                      </div>
-                    ) : (
-                      <p className="text-sm game-muted mt-1">{state?.status === "processing" ? "Enriqueciendo automáticamente…" : "En cola para enriquecimiento automático…"}</p>
-                    )}
+                      <div className="text-sm mt-1"><p className="text-rose-200">✕ Enriquecimiento automático fallido</p><p className="game-muted text-xs mt-1">{state.error}</p></div>
+                    ) : <p className="text-sm game-muted mt-1">{state?.status === "processing" ? "Enriqueciendo automáticamente…" : "En cola para enriquecimiento automático…"}</p>}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => enrichImportedArtist(artistId)}
-                    disabled={Boolean(enrichingArtistId) || working || !secret}
-                    className="game-primary rounded-xl px-5 py-3 font-black shrink-0 disabled:opacity-40"
-                  >
-                    {enrichingArtistId === artistId
-                      ? "Enriqueciendo…"
-                      : working
-                        ? "Automático…"
-                        : state?.status === "failed"
-                          ? "Reintentar"
-                          : "Reenriquecer"}
+                  <button type="button" onClick={() => retryArtist(artistId)} disabled={Boolean(enrichingArtistId) || working || !secret} className="game-primary rounded-xl px-5 py-3 font-black shrink-0 disabled:opacity-40">
+                    {enrichingArtistId === artistId ? "Enriqueciendo…" : working ? "Automático…" : state?.status === "failed" ? "Reintentar" : "Reenriquecer"}
                   </button>
                 </div>
               );
             })}
+          </section>
+        )}
+
+        {lastImport && (
+          <section className="game-panel rounded-[2rem] p-5 space-y-3">
+            <div>
+              <p className="game-kicker">Paso 3 · automático</p>
+              <h2 className="font-black text-xl mt-1">Enriquecimiento de canción</h2>
+              <p className="game-muted text-sm mt-1">ISRC y Spotify identifican la grabación. MusicBrainz y Wikidata añaden únicamente hechos que podamos verificar.</p>
+            </div>
+            <div className="rounded-2xl border border-canvas-600/60 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <div>
+                <p className="font-black">{lastImport.track.title}</p>
+                {songState?.result ? (
+                  <div className="text-sm game-muted mt-1 space-y-1">
+                    <p>{songState.result.languageCodes.length ? `Idioma: ${songState.result.languageCodes.join(", ")}` : "Idioma aún no verificado"} · {songState.result.isCollaboration ? "colaboración" : "un artista acreditado"}</p>
+                    <p>{[
+                      songState.result.isCover ? "cover verificado" : null,
+                      songState.result.isInstrumental ? "instrumental" : null,
+                      songState.result.eurovision ? "Eurovisión" : null,
+                      ...songState.result.soundtrackKinds.map((kind) => `banda sonora: ${kind}`),
+                    ].filter(Boolean).join(" · ") || "Sin condiciones especiales verificadas"}</p>
+                    <p>fuentes: {songState.result.sources.join(" + ") || "sin fuente externa"}</p>
+                    <p className="text-emerald-200">✓ {songState.result.factsWritten} hechos verificados</p>
+                    {songState.result.warnings.map((warning) => <p key={warning} className="text-amber-200">⚠ {warning}</p>)}
+                  </div>
+                ) : songState?.status === "failed" ? (
+                  <div className="text-sm mt-1"><p className="text-rose-200">✕ Enriquecimiento de canción fallido</p><p className="game-muted text-xs mt-1">{songState.error}</p></div>
+                ) : <p className="text-sm game-muted mt-1">{songState?.status === "processing" ? "Enriqueciendo canción automáticamente…" : "En cola para enriquecimiento de canción…"}</p>}
+              </div>
+              <button type="button" onClick={retrySong} disabled={enrichingSong || songState?.status === "processing" || songState?.status === "pending" || !secret} className="game-primary rounded-xl px-5 py-3 font-black shrink-0 disabled:opacity-40">
+                {enrichingSong ? "Enriqueciendo…" : songState?.status === "processing" || songState?.status === "pending" ? "Automático…" : songState?.status === "failed" ? "Reintentar" : "Reenriquecer"}
+              </button>
+            </div>
           </section>
         )}
 

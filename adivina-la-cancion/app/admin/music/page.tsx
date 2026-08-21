@@ -28,6 +28,19 @@ type ImportResult = {
   track: Candidate;
 };
 
+type EnrichmentResult = {
+  artistId: string;
+  artistName: string;
+  artistType: "solo" | "group" | "duo" | "unknown";
+  originCountryCode?: string;
+  originRegions: string[];
+  genreCodes: string[];
+  factsWritten: number;
+  externalIdsWritten: number;
+  sources: string[];
+  warnings: string[];
+};
+
 const STATUS_COPY = {
   created: "Creada en el catálogo",
   existing: "Ya existía en el catálogo",
@@ -42,6 +55,9 @@ export default function MusicAdminPage() {
   const [results, setResults] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
+  const [enrichingArtistId, setEnrichingArtistId] = useState<string | null>(null);
+  const [lastImport, setLastImport] = useState<ImportResult | null>(null);
+  const [enrichments, setEnrichments] = useState<Record<string, EnrichmentResult>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,11 +109,36 @@ export default function MusicAdminPage() {
       });
       const payload = (await response.json()) as { result?: ImportResult; error?: string };
       if (!response.ok || !payload.result) throw new Error(payload.error || "No se pudo importar");
+      setLastImport(payload.result);
       setMessage(`${STATUS_COPY[payload.result.status]} · ${payload.result.track.title} · ID ${payload.result.songId}`);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : "No se pudo importar");
     } finally {
       setImportingId(null);
+    }
+  }
+
+  async function enrichImportedArtist(artistId: string) {
+    setError(null);
+    setMessage(null);
+    setEnrichingArtistId(artistId);
+    try {
+      const response = await fetch("/api/music/enrich-artist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-music-admin-secret": secret,
+        },
+        body: JSON.stringify({ artistId }),
+      });
+      const payload = (await response.json()) as { result?: EnrichmentResult; error?: string };
+      if (!response.ok || !payload.result) throw new Error(payload.error || "No se pudo enriquecer el artista");
+      setEnrichments((current) => ({ ...current, [artistId]: payload.result as EnrichmentResult }));
+      setMessage(`Enriquecido · ${payload.result.artistName} · ${payload.result.factsWritten} hechos verificados`);
+    } catch (enrichmentError) {
+      setError(enrichmentError instanceof Error ? enrichmentError.message : "No se pudo enriquecer el artista");
+    } finally {
+      setEnrichingArtistId(null);
     }
   }
 
@@ -109,7 +150,7 @@ export default function MusicAdminPage() {
         <header>
           <p className="game-kicker">Laboratorio interno</p>
           <h1 className="game-title text-4xl mt-2">Catálogo musical</h1>
-          <p className="game-muted mt-3">Busca una canción en Spotify y guarda su identidad canónica en Supabase.</p>
+          <p className="game-muted mt-3">Busca una canción en Spotify, guarda su identidad y enriquece sus artistas con fuentes verificables.</p>
         </header>
 
         <section className="game-panel rounded-[2rem] p-5">
@@ -150,6 +191,44 @@ export default function MusicAdminPage() {
 
         {error && <div className="rounded-2xl border border-rose-700/40 bg-rose-950/25 p-4 text-rose-200 text-sm">{error}</div>}
         {message && <div className="rounded-2xl border border-emerald-700/40 bg-emerald-950/25 p-4 text-emerald-200 text-sm">{message}</div>}
+
+        {lastImport && lastImport.artistIds.length > 0 && (
+          <section className="game-panel rounded-[2rem] p-5 space-y-3">
+            <div>
+              <p className="game-kicker">Paso 2</p>
+              <h2 className="font-black text-xl mt-1">Enriquecer artistas</h2>
+              <p className="game-muted text-sm mt-1">MusicBrainz resuelve identidad, tipo, origen y géneros. Wikidata confirma tipo y país cuando hay enlace estructurado.</p>
+            </div>
+            {lastImport.artistIds.map((artistId, index) => {
+              const enrichment = enrichments[artistId];
+              const artistName = lastImport.track.artists[index]?.name ?? artistId;
+              return (
+                <div key={artistId} className="rounded-2xl border border-canvas-600/60 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div>
+                    <p className="font-black">{artistName}</p>
+                    {enrichment ? (
+                      <div className="text-sm game-muted mt-1 space-y-1">
+                        <p>{enrichment.artistType} · {enrichment.originCountryCode ?? "sin país"}{enrichment.originRegions.length ? ` · ${enrichment.originRegions.join(", ")}` : ""}</p>
+                        <p>{enrichment.genreCodes.length ? enrichment.genreCodes.join(" · ") : "sin géneros canónicos"} · fuentes: {enrichment.sources.join(" + ")}</p>
+                        {enrichment.warnings.map((warning) => <p key={warning} className="text-amber-200">⚠ {warning}</p>)}
+                      </div>
+                    ) : (
+                      <p className="text-xs game-muted mt-1">Pendiente de enriquecimiento</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => enrichImportedArtist(artistId)}
+                    disabled={Boolean(enrichingArtistId) || !secret}
+                    className="game-primary rounded-xl px-5 py-3 font-black shrink-0 disabled:opacity-40"
+                  >
+                    {enrichingArtistId === artistId ? "Enriqueciendo…" : enrichment ? "Reenriquecer" : "Enriquecer artista"}
+                  </button>
+                </div>
+              );
+            })}
+          </section>
+        )}
 
         <section className="space-y-3">
           {results.map((candidate) => (

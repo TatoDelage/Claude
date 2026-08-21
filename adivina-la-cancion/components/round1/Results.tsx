@@ -29,7 +29,6 @@ export default function Results({
   const scores = scoresByTeam(results);
   const best = Math.max(...Object.values(scores));
 
-  // Build per-team song log
   const logByTeam: Record<string, TurnResult[]> = Object.fromEntries(
     teams.map((t) => [t.id, []])
   );
@@ -37,24 +36,22 @@ export default function Results({
     logByTeam[r.teamId]?.push(r);
   }
 
-  const totalCorrect = results.filter((r) => r.correct).length;
+  const totalCorrect = results.filter((r) => r.correct || r.reboundTeamId).length;
   const totalTurns = results.length;
 
   return (
     <div className="min-h-screen bg-canvas-950 text-white flex flex-col">
-      {/* Header */}
       <header className="px-4 pt-6 pb-4 border-b border-canvas-700/60 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
           Ronda 1 completada
         </p>
         <h1 className="text-3xl font-black">Resultados</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          {totalCorrect} de {totalTurns} canciones acertadas
+          {totalCorrect} de {totalTurns} canciones terminaron en acierto
         </p>
       </header>
 
       <div className="flex-1 overflow-auto px-4 py-6 space-y-5 max-w-2xl mx-auto w-full">
-        {/* Score summary per team */}
         <section className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(teams.length, 2)}, 1fr)` }}>
           {teams.map((team) => {
             const pts = scores[team.id] ?? 0;
@@ -78,7 +75,7 @@ export default function Results({
                 >
                   {team.name}
                 </p>
-                <p className={`text-4xl font-black mt-1 ${isLeader ? "text-white" : "text-white"}`}>
+                <p className="text-4xl font-black mt-1 text-white">
                   {pts > 0 ? `+${pts}` : "0"}
                 </p>
                 <p className={`text-xs mt-0.5 ${isLeader ? "text-white/60" : "text-zinc-500"}`}>
@@ -89,7 +86,6 @@ export default function Results({
           })}
         </section>
 
-        {/* Song log per team */}
         {teams.map((team) => {
           const log = logByTeam[team.id] ?? [];
           const teamPts = scores[team.id] ?? 0;
@@ -108,6 +104,7 @@ export default function Results({
                   const label =
                     [r.song.title, r.song.artist].filter(Boolean).join(" — ") ||
                     "Sin info";
+                  const reboundTeam = r.reboundTeamId ? teams.find((item) => item.id === r.reboundTeamId) : null;
                   return (
                     <div
                       key={i}
@@ -115,15 +112,22 @@ export default function Results({
                     >
                       <div className="min-w-0">
                         <p className="text-sm text-zinc-300 truncate">{label}</p>
+                        {reboundTeam && (
+                          <p className={`text-xs mt-1 font-bold ${TEAM_TEXT[reboundTeam.color]}`}>
+                            🎭 Robo de {reboundTeam.name} · +{POINTS_CORRECT}
+                          </p>
+                        )}
                       </div>
                       <span
                         className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${
                           r.correct
                             ? "bg-green-500/15 text-green-400"
+                            : reboundTeam
+                            ? "bg-amber-500/15 text-amber-300"
                             : "bg-canvas-800 text-zinc-500"
                         }`}
                       >
-                        {r.correct ? `+${POINTS_CORRECT}` : "0"}
+                        {r.correct ? `+${POINTS_CORRECT}` : reboundTeam ? "Robo" : "0"}
                       </span>
                     </div>
                   );
@@ -133,10 +137,9 @@ export default function Results({
           );
         })}
 
-        {/* Continue button */}
         <button
           onClick={onContinue}
-          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 font-black shadow-lg shadow-black/20"
+          className="w-full py-4 rounded-2xl font-black text-lg bg-white hover:bg-zinc-100 active:scale-95 transition-all text-zinc-900 shadow-lg shadow-black/20"
         >
           Ver marcador general →
         </button>

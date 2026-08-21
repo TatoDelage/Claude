@@ -33,6 +33,7 @@ type MbRecording = {
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "AdivinaLaCancion/0.3 (https://claude-blue-tau.vercel.app)";
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 4;
 let lastRequestAt = 0;
 
 function sleep(ms: number) {
@@ -45,33 +46,42 @@ async function waitForRateLimit() {
   lastRequestAt = Date.now();
 }
 
+function retryDelay(response: Response | undefined, attempt: number) {
+  const retryAfter = Number(response?.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(retryAfter * 1000, 8000);
+  return [1800, 3200, 5200][attempt] ?? 5200;
+}
+
 async function mbFetch<T>(path: string): Promise<T> {
   let lastStatus: number | undefined;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  let lastNetworkError: string | undefined;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     await waitForRateLimit();
-    let response: Response;
+    let response: Response | undefined;
+
     try {
       response = await fetch(`${MUSICBRAINZ_BASE}${path}`, {
         headers: { Accept: "application/json", "User-Agent": USER_AGENT },
         cache: "no-store",
-        signal: AbortSignal.timeout(9000),
+        signal: AbortSignal.timeout(12000),
       });
     } catch (error) {
-      if (attempt < 2) {
-        await sleep(attempt === 0 ? 1600 : 3200);
+      lastNetworkError = error instanceof Error ? error.message : "error de red";
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(retryDelay(undefined, attempt));
         continue;
       }
-      const detail = error instanceof Error ? error.message : "error de red";
-      throw new Error(`MusicBrainz no está disponible temporalmente (${detail})`);
+      throw new Error(`MusicBrainz no está disponible temporalmente (${lastNetworkError})`);
     }
 
     if (response.ok) return (await response.json()) as T;
     lastStatus = response.status;
-    if (!RETRYABLE_STATUS.has(response.status) || attempt === 2) break;
-    const retryAfter = Number(response.headers.get("retry-after"));
-    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 6000) : attempt === 0 ? 1600 : 3200);
+    if (!RETRYABLE_STATUS.has(response.status) || attempt === MAX_ATTEMPTS - 1) break;
+    await sleep(retryDelay(response, attempt));
   }
-  throw new Error(`MusicBrainz respondió ${lastStatus ?? "con error"}`);
+
+  throw new Error(`MusicBrainz respondió ${lastStatus ?? lastNetworkError ?? "con error"}`);
 }
 
 function normalize(value: string) {
@@ -163,13 +173,19 @@ export async function resolveMusicBrainzSong(input: {
   artistNames: string[];
   knownRecordingMbid?: string;
 }): Promise<ResolvedMusicBrainzSong> {
-  // Leave a small buffer because artist enrichment uses the same public service.
-  await sleep(1500);
+  await sleep(1200);
 
-  const recordingMbid = validMbid(input.knownRecordingMbid)
-    ? (input.knownRecordingMbid as string)
-    : (input.isrc ? await recordingFromIsrc(input.isrc, input.title, input.artistNames) : undefined)
-      ?? (await recordingFromSearch(input.title, input.artistNames));
+  let recordingMbid = validMbid(input.knownRecordingMbid) ? (input.knownRecordingMbid as string) : undefined;
+
+  if (!recordingMbid && input.isrc) {
+    try {
+      recordingMbid = await recordingFromIsrc(input.isrc, input.title, input.artistNames);
+    } catch (error) {
+      console.warn(`MusicBrainz ISRC lookup falló para ${input.isrc}; usando búsqueda`, error);
+    }
+  }
+
+  if (!recordingMbid) recordingMbid = await recordingFromSearch(input.title, input.artistNames);
 
   const recording = await lookupRecording(recordingMbid);
   const performanceRelations = (recording.relations ?? []).filter(
@@ -180,7 +196,11 @@ export async function resolveMusicBrainzSong(input: {
 
   let work: MbWork | undefined;
   if (primaryPerformance?.work?.id) {
-    work = await lookupWork(primaryPerformance.work.id);
+    try {
+      work = await lookupWork(primaryPerformance.work.id);
+    } catch (error) {
+      console.warn(`MusicBrainz work lookup falló para ${primaryPerformance.work.id}; conservando datos de recording`, error);
+    }
   }
 
   const languages = Array.from(new Set([

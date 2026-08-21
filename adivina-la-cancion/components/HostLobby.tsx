@@ -22,6 +22,7 @@ export default function HostLobby({ onStarted }: HostLobbyProps) {
   const [room, setRoom] = useState<RemoteRoom | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setCode(localStorage.getItem("adivina_join_code"));
@@ -63,6 +64,16 @@ export default function HostLobby({ onStarted }: HostLobbyProps) {
   const connected = room?.players.filter((p) => p.device_active).length ?? 0;
   const total = room?.players.length ?? 0;
 
+  const handleCopyJoin = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/join`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   const handleStart = async () => {
     if (!code || !hostToken || starting) return;
     setStarting(true);
@@ -83,12 +94,19 @@ export default function HostLobby({ onStarted }: HostLobbyProps) {
         <p className="game-kicker">Lobby</p>
         <h1 className="game-title text-4xl sm:text-5xl mt-3">La partida está lista</h1>
         <p className="game-muted text-sm sm:text-base mt-3 max-w-md mx-auto">
-          Que entren los jugadores, reclamen su nombre y empiece el inevitable exceso de confianza musical.
+          Los jugadores entran desde su móvil, eligen su nombre y esperan aquí al resto.
         </p>
 
         <div className="mt-8 mx-auto max-w-md rounded-3xl border border-gold-300/20 bg-black/15 px-5 py-6">
           <p className="text-[10px] uppercase tracking-[0.28em] font-black text-gold-300/70">Código de sala</p>
           <p className="text-5xl sm:text-6xl font-black tracking-[0.18em] text-cream-50 mt-2 drop-shadow-lg">{code ?? "------"}</p>
+          <p className="text-xs game-muted mt-4">Entra en <span className="text-cream-100 font-black">/join</span> y escribe este código.</p>
+          <button
+            onClick={handleCopyJoin}
+            className="mt-3 px-4 py-2 rounded-xl border border-canvas-600 bg-black/15 text-xs font-black text-cream-100 active:scale-95 transition-all"
+          >
+            {copied ? "Enlace copiado ✓" : "Copiar enlace para jugadores"}
+          </button>
           <div className="mt-4 flex items-center justify-center gap-2 text-xs game-muted">
             <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,.45)]" />
             {connected} de {total || "…"} jugadores conectados

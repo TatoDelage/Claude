@@ -1,6 +1,7 @@
 "use client";
 
-import { Team } from "@/lib/types";
+import { useState } from "react";
+import { Team, WildcardId } from "@/lib/types";
 import { useGame } from "@/context/GameContext";
 
 const COLOR_MAP: Record<
@@ -43,46 +44,70 @@ const COLOR_MAP: Record<
 
 const SCORE_STEPS = [10, 20, 50, 100];
 
-function TeamCard({ team, onWildcard }: { team: Team; onWildcard?: () => void }) {
+function TeamCard({
+  team,
+  onWildcard,
+  wildcardIds,
+  wildcardLabel,
+}: {
+  team: Team;
+  onWildcard?: () => void;
+  wildcardIds?: WildcardId[];
+  wildcardLabel?: string;
+}) {
   const { adjustScore } = useGame();
+  const [showAdjust, setShowAdjust] = useState(false);
   const c = COLOR_MAP[team.color];
-  const availableWildcards = team.wildcards.filter((w) => !w.used).length;
+  const relevantWildcards = team.wildcards.filter((w) => !wildcardIds || wildcardIds.includes(w.id));
+  const availableWildcards = relevantWildcards.filter((w) => !w.used).length;
+  const hasRelevantWildcard = relevantWildcards.length > 0;
 
   return (
-    <div className={`flex-1 min-w-0 rounded-3xl border ${c.bg} ${c.border} p-4 sm:p-5 flex flex-col gap-4 shadow-xl shadow-black/10`}>
+    <div className={`min-w-0 rounded-3xl border ${c.bg} ${c.border} p-4 sm:p-5 flex flex-col gap-3 shadow-xl shadow-black/10`}>
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 min-w-0">
           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${c.dot}`} />
-          <p className={`text-xs font-black uppercase tracking-[0.18em] ${c.text} truncate`}>{team.name}</p>
+          <p className={`text-xs font-black uppercase tracking-[0.14em] ${c.text} truncate`}>{team.name}</p>
         </div>
-        <p className="text-5xl sm:text-6xl font-black tabular-nums leading-none mt-3 text-cream-50 tracking-tight">{team.score}</p>
+        <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none mt-3 text-cream-50 tracking-tight">{team.score}</p>
         <p className="text-[10px] uppercase tracking-[0.2em] game-muted mt-1">puntos</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5">
-        {SCORE_STEPS.map((step) => (
-          <button
-            key={`plus-${step}`}
-            onClick={() => adjustScore(team.id, step)}
-            className={`${c.plus} text-white text-[11px] font-black py-2 rounded-xl transition-all active:scale-95`}
-          >
-            +{step}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {SCORE_STEPS.slice(0, 2).map((step) => (
-          <button
-            key={`minus-${step}`}
-            onClick={() => adjustScore(team.id, -step)}
-            className={`${c.minus} text-zinc-300 text-[11px] font-black py-2 rounded-xl transition-all active:scale-95`}
-          >
-            −{step}
-          </button>
-        ))}
-      </div>
+      <button
+        onClick={() => setShowAdjust((value) => !value)}
+        className="w-full py-2 rounded-xl border border-canvas-700/70 bg-black/10 text-[11px] font-black text-zinc-400 hover:text-zinc-200 transition-colors"
+      >
+        {showAdjust ? "Ocultar ajustes" : "Ajustar puntos"}
+      </button>
 
-      {onWildcard && (
+      {showAdjust && (
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {SCORE_STEPS.map((step) => (
+              <button
+                key={`plus-${step}`}
+                onClick={() => adjustScore(team.id, step)}
+                className={`${c.plus} text-white text-[11px] font-black py-2 rounded-xl transition-all active:scale-95`}
+              >
+                +{step}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {SCORE_STEPS.slice(0, 2).map((step) => (
+              <button
+                key={`minus-${step}`}
+                onClick={() => adjustScore(team.id, -step)}
+                className={`${c.minus} text-zinc-300 text-[11px] font-black py-2 rounded-xl transition-all active:scale-95`}
+              >
+                −{step}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {onWildcard && hasRelevantWildcard && (
         <button
           onClick={availableWildcards > 0 ? onWildcard : undefined}
           className={`w-full py-2.5 rounded-xl text-xs font-black transition-all ${
@@ -91,30 +116,46 @@ function TeamCard({ team, onWildcard }: { team: Team; onWildcard?: () => void })
               : "bg-black/10 text-zinc-600 cursor-default"
           }`}
         >
-          🃏 Comodín{availableWildcards > 0 ? ` · ${availableWildcards}` : " · agotados"}
+          {wildcardLabel ?? "🃏 Comodín"}{availableWildcards > 0 ? "" : " · usado"}
         </button>
       )}
     </div>
   );
 }
 
-export default function Scoreboard({ teams, onWildcard }: { teams: Team[]; onWildcard?: (teamId: string) => void }) {
+export default function Scoreboard({
+  teams,
+  onWildcard,
+  wildcardIds,
+  wildcardLabel,
+}: {
+  teams: Team[];
+  onWildcard?: (teamId: string) => void;
+  wildcardIds?: WildcardId[];
+  wildcardLabel?: string;
+}) {
   const sorted = [...teams].sort((a, b) => b.score - a.score);
   const leader = sorted[0];
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h2 className="game-kicker">Marcador</h2>
         {leader && (
-          <span className="text-xs game-muted">
+          <span className="text-xs game-muted truncate">
             Lidera <span className={`font-black ${COLOR_MAP[leader.color].text}`}>{leader.name}</span>
           </span>
         )}
       </div>
-      <div className="flex gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {teams.map((team) => (
-          <TeamCard key={team.id} team={team} onWildcard={onWildcard ? () => onWildcard(team.id) : undefined} />
+          <TeamCard
+            key={team.id}
+            team={team}
+            onWildcard={onWildcard ? () => onWildcard(team.id) : undefined}
+            wildcardIds={wildcardIds}
+            wildcardLabel={wildcardLabel}
+          />
         ))}
       </div>
     </section>

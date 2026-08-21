@@ -1,5 +1,6 @@
 import { spotifyIsConfigured } from "@/lib/server/spotifyCatalog";
 import { supabaseMusicWriteIsConfigured } from "@/lib/server/musicIngestion";
+import { discogsIsConfigured } from "@/lib/server/discogsInstrumentation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,5 +14,6 @@ export async function GET() {
     lyricsProvider: "lrclib",
     lyricsProviderConfigured: true,
     musixmatchConfigured: Boolean(process.env.MUSIXMATCH_API_KEY?.trim()),
+    discogsConfigured: discogsIsConfigured(),
   });
 }

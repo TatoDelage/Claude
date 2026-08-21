@@ -1,3 +1,5 @@
+import { SongDraft } from "./content";
+
 export const ROUND5_KEY = "adivina_round5";
 export const BANK_SIZE = 15;
 export const TURN_DURATION = 45;
@@ -6,10 +8,8 @@ export const MIN_TURN_DURATION = 15;
 export const MAX_TURN_DURATION = 120;
 export const POINTS_WIN = 120;
 
-export interface SongEntry {
+export interface SongEntry extends SongDraft {
   id: string;
-  title: string;
-  artist: string;
 }
 
 export interface PlayerTurnResult {

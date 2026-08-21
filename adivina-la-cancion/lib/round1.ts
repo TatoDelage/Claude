@@ -1,3 +1,4 @@
+import { SongDraft } from "./content";
 import { Team } from "./types";
 
 export const SONGS_PER_TEAM = 5;
@@ -7,10 +8,7 @@ export const DEFAULT_RESPONSE_DURATION = 10;
 export const ROBO_REBOUND_DURATION = 10;
 export const POINTS_CORRECT = 10;
 
-export interface SongEntry {
-  title: string;
-  artist: string;
-}
+export type SongEntry = SongDraft;
 
 export interface TurnDef {
   teamId: string;

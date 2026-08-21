@@ -3,6 +3,7 @@ export type MusicProvider =
   | "musicbrainz"
   | "wikidata"
   | "musixmatch"
+  | "lrclib"
   | "instrumentation-index"
   | "manual";
 
@@ -53,10 +54,16 @@ export const PROVIDER_RESPONSIBILITIES: ProviderResponsibility[] = [
     notes: "Verify structured biographical/geographic facts and relationships not covered reliably by the music catalogue.",
   },
   {
+    provider: "lrclib",
+    role: "lyrics",
+    storesRawPayload: false,
+    notes: "Development lyrics verifier with openly accessible API; store only query-specific facts/evidence, never raw lyrics.",
+  },
+  {
     provider: "musixmatch",
     role: "lyrics",
     storesRawPayload: false,
-    notes: "Verify lyric conditions through a licensed lyrics provider; store only the resulting fact/evidence reference.",
+    notes: "Optional licensed production lyrics provider; store only the resulting fact/evidence reference.",
   },
   {
     provider: "instrumentation-index",

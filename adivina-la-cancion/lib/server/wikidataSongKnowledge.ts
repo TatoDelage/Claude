@@ -28,11 +28,24 @@ export async function getWikidataSongKnowledge(id: string): Promise<WikidataSong
         OPTIONAL { ?language wdt:P218 ?languageCode. }
       }
 
+      # Wikidata models Eurovision participation in more than one structured way.
+      # Accept an explicit participant-in relation to an ESC edition/series, or
+      # a performer statement qualified as a Eurovision Song Contest entry.
       BIND(EXISTS {
-        ?item wdt:P1344 ?event.
-        ?event rdfs:label ?eventLabel.
-        FILTER(LANG(?eventLabel) = "en")
-        FILTER(CONTAINS(LCASE(STR(?eventLabel)), "eurovision song contest"))
+        {
+          ?item wdt:P1344 ?event.
+          ?event wdt:P31/wdt:P279* wd:Q110288240.
+        }
+        UNION
+        {
+          ?item wdt:P1344 ?event.
+          ?event wdt:P361 wd:Q276.
+        }
+        UNION
+        {
+          ?item p:P175 ?performerStatement.
+          ?performerStatement pq:P1552 wd:Q63481999.
+        }
       } AS ?eurovision)
 
       OPTIONAL {

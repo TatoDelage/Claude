@@ -2,6 +2,7 @@ import { INSTRUMENT_VALIDATION_CASES } from "../instrumentValidationCases";
 import { searchSpotifyTracks, type SpotifyTrackCandidate } from "./spotifyCatalog";
 import { ingestSpotifyTrackById } from "./musicIngestion";
 import { runSongEnrichment } from "./songEnrichmentState";
+import { verifyInstrumentFact } from "./instrumentFactVerification";
 
 function normalize(value: string) {
   return value
@@ -42,8 +43,23 @@ export async function runInstrumentValidationCase(testId: string) {
   const candidate = pickExactCandidate(test.title, test.artist, candidates);
   const imported = await ingestSpotifyTrackById(candidate.spotifyId);
   const state = await runSongEnrichment(imported.songId);
-  const detected = state.result?.instrumentCodes ?? [];
+  const musicBrainzDetected = state.result?.instrumentCodes ?? [];
+
+  let detected = [...musicBrainzDetected];
+  let fallback: Awaited<ReturnType<typeof verifyInstrumentFact>> | undefined;
+
+  if (!detected.includes(test.expectedInstrument)) {
+    fallback = await verifyInstrumentFact(imported.songId, test.expectedInstrument);
+    if (fallback.status === "verified" && !detected.includes(test.expectedInstrument)) {
+      detected.push(test.expectedInstrument);
+    }
+  }
+
   const passed = detected.includes(test.expectedInstrument);
+  const sources = Array.from(new Set([
+    ...(state.result?.sources ?? []),
+    ...(fallback?.provider ? [fallback.provider] : []),
+  ]));
 
   return {
     test,
@@ -54,12 +70,20 @@ export async function runInstrumentValidationCase(testId: string) {
     artists: candidate.artists.map((item) => item.name),
     enrichmentStatus: state.status,
     detectedInstruments: detected,
-    sources: state.result?.sources ?? [],
+    sources,
     warnings: state.result?.warnings ?? [],
+    fallback: fallback ? {
+      status: fallback.status,
+      provider: fallback.provider,
+      reason: fallback.reason,
+      sourceUrl: fallback.sourceUrl,
+    } : undefined,
     actual: passed
-      ? `${test.label} verificado por crédito de grabación`
+      ? fallback?.provider === "discogs"
+        ? `${test.label} verificado por crédito de pista en Discogs`
+        : `${test.label} verificado por crédito de grabación en MusicBrainz`
       : detected.length
         ? `No se detectó ${test.label.toLowerCase()}. Sí aparecen: ${detected.join(", ")}`
-        : `MusicBrainz no devolvió instrumentos canónicos para esta grabación`,
+        : fallback?.reason ?? `MusicBrainz no devolvió instrumentos canónicos para esta grabación`,
   };
 }

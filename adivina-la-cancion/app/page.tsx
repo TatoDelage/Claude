@@ -9,10 +9,10 @@ import { createRemoteGame } from "@/lib/supabaseRest";
 const TEAM_COUNT_OPTIONS = [2, 3, 4] as const;
 
 const DEFAULT_TEAM_NAMES = [
-  "Equipo Rojo",
-  "Equipo Azul",
-  "Equipo Verde",
+  "Equipo Morado",
   "Equipo Amarillo",
+  "Equipo Azul",
+  "Equipo Rosa",
 ];
 
 const TEAM_ACCENT = [
@@ -134,6 +134,13 @@ export default function SetupPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-4 pb-10 space-y-6 max-w-sm mx-auto w-full">
+        <button
+          onClick={() => router.push("/join")}
+          className="w-full py-3 rounded-2xl border border-gold-300/20 bg-gold-300/[0.05] text-gold-300 text-sm font-black active:scale-95 transition-all"
+        >
+          📱 Soy jugador · Unirme a una partida
+        </button>
+
         <section>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">
             Número de equipos

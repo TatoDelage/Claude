@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import ValidationSuite from "./ValidationSuite";
 
 type PipelineStatus = "pending" | "processing" | "enriched" | "failed";
 
@@ -329,6 +330,8 @@ export default function MusicAdminPage() {
             {loading ? "Buscando…" : "Buscar en Spotify"}
           </button>
         </form>
+
+        <ValidationSuite secret={secret} />
 
         {error && <div className="rounded-2xl border border-rose-700/40 bg-rose-950/25 p-4 text-rose-200 text-sm">{error}</div>}
         {message && <div className="rounded-2xl border border-emerald-700/40 bg-emerald-950/25 p-4 text-emerald-200 text-sm">{message}</div>}

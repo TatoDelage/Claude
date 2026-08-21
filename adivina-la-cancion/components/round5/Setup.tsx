@@ -7,6 +7,7 @@ import {
   Round5Setup,
   BANK_SIZE,
   TURN_DURATION,
+  TIEBREAK_DURATION,
   MIN_TURN_DURATION,
   MAX_TURN_DURATION,
   POINTS_WIN,
@@ -36,7 +37,7 @@ export default function Setup({
   };
 
   const totalPlayers = teams.reduce((sum, team) => sum + team.players.length, 0);
-  const allFilled = songs.every((song) => song.title.trim() !== "");
+  const allFilled = songs.every((song) => song.title.trim() !== "" && song.artist.trim() !== "");
   const canStart = allFilled && totalPlayers > 0;
   const teamsWithNoPlayers = teams.filter((team) => team.players.length === 0);
 
@@ -48,7 +49,7 @@ export default function Setup({
         </p>
         <h1 className="text-2xl font-black">Relámpago</h1>
         <p className="text-zinc-400 text-sm mt-1">
-          {BANK_SIZE} canciones · {turnDuration}s por jugador · solo aciertos
+          {BANK_SIZE} canciones · {turnDuration}s por jugador · acierto o paso
         </p>
       </header>
 
@@ -66,8 +67,8 @@ export default function Setup({
               <p className="text-zinc-500 text-xs mt-0.5">Más aciertos</p>
             </div>
             <div className="flex-1 text-center bg-canvas-800 border border-canvas-700 rounded-xl py-2.5">
-              <p className="font-black text-zinc-400 text-xl">0</p>
-              <p className="text-zinc-500 text-xs mt-0.5">Empate</p>
+              <p className="font-black text-zinc-300 text-xl">{TIEBREAK_DURATION}s</p>
+              <p className="text-zinc-500 text-xs mt-0.5">Desempate</p>
             </div>
             <div className="flex-1 text-center bg-canvas-800 border border-canvas-700 rounded-xl py-2.5">
               <p className="font-black text-zinc-500 text-xs leading-tight">Sin penalización</p>
@@ -75,8 +76,8 @@ export default function Setup({
             </div>
           </div>
           <p className="text-xs text-zinc-600 pt-1">
-            Los comodines <span className="text-zinc-500">Silencio</span> y{" "}
-            <span className="text-zinc-500">Robo</span> no están disponibles en esta ronda.
+            En esta ronda solo están disponibles los comodines <span className="text-zinc-400">Tiempo</span> y{" "}
+            <span className="text-zinc-400">Cantante</span>.
           </p>
         </section>
 
@@ -139,7 +140,7 @@ export default function Setup({
                   {totalPlayers} jugador{totalPlayers !== 1 ? "es" : ""} × {turnDuration}s ={" "}
                   <span className="text-zinc-300">{formatDuration(totalPlayers * turnDuration)}</span> aproximadamente
                 </p>
-                <p className="text-xs text-zinc-600 mt-0.5">sin contar el tiempo de recarga del banco</p>
+                <p className="text-xs text-zinc-600 mt-0.5">sin contar transiciones entre jugadores</p>
               </div>
             </div>
           )}
@@ -165,13 +166,17 @@ export default function Setup({
 
         <section className="bg-canvas-900 border border-canvas-700 rounded-2xl p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Banco de canciones</p>
-            <span className="text-xs text-zinc-600">{songs.filter((song) => song.title.trim()).length}/{BANK_SIZE}</span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Banco de canciones</p>
+              <p className="text-[11px] text-zinc-600 mt-1">Título y artista son obligatorios porque existe el comodín Cantante.</p>
+            </div>
+            <span className="text-xs text-zinc-600">{songs.filter((song) => song.title.trim() && song.artist.trim()).length}/{BANK_SIZE}</span>
           </div>
 
           <div className="space-y-3">
             {songs.map((song, index) => {
               const titleMissing = song.artist.trim() !== "" && song.title.trim() === "";
+              const artistMissing = song.title.trim() !== "" && song.artist.trim() === "";
               return (
                 <div key={song.id} className="space-y-1.5">
                   <p className="text-xs text-zinc-600 font-medium">#{index + 1}</p>
@@ -190,13 +195,20 @@ export default function Setup({
                       />
                       {titleMissing && <p className="text-[10px] text-red-400 font-medium px-1">Título obligatorio</p>}
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Artista"
-                      value={song.artist}
-                      onChange={(event) => updateSong(song.id, "artist", event.target.value)}
-                      className="bg-canvas-800/80 border border-canvas-700/60 rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-                    />
+                    <div className="space-y-0.5">
+                      <input
+                        type="text"
+                        placeholder="Artista *"
+                        value={song.artist}
+                        onChange={(event) => updateSong(song.id, "artist", event.target.value)}
+                        className={`w-full bg-canvas-800/80 border rounded-xl px-3 py-2 text-white placeholder-zinc-600 text-sm focus:outline-none transition-colors ${
+                          artistMissing
+                            ? "border-red-500/60 focus:border-red-400"
+                            : "border-canvas-700/60 focus:border-zinc-500"
+                        }`}
+                      />
+                      {artistMissing && <p className="text-[10px] text-red-400 font-medium px-1">Artista obligatorio</p>}
+                    </div>
                   </div>
                 </div>
               );
@@ -205,7 +217,7 @@ export default function Setup({
         </section>
 
         <button
-          onClick={() => onStart({ songs: songs.filter((song) => song.title.trim()), turnDuration, visualDistractions })}
+          onClick={() => onStart({ songs: songs.filter((song) => song.title.trim() && song.artist.trim()), turnDuration, visualDistractions })}
           disabled={!canStart}
           className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
             canStart
@@ -216,7 +228,7 @@ export default function Setup({
           {totalPlayers === 0
             ? "Sin jugadores registrados"
             : !allFilled
-            ? `Rellena las ${BANK_SIZE} canciones`
+            ? `Completa las ${BANK_SIZE} canciones`
             : "¡Empezar Ronda 5! ⚡"}
         </button>
 

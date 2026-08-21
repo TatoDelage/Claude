@@ -12,13 +12,22 @@ export interface SpotifyIngestResult {
 
 function supabaseServiceConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
-  return { url: url.replace(/\/$/, ""), key };
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  const legacyServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = secretKey || legacyServiceRoleKey;
+  if (!url || !key) throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY");
+  return {
+    url: url.replace(/\/$/, ""),
+    key,
+    legacyBearer: !secretKey && Boolean(legacyServiceRoleKey),
+  };
 }
 
 export function supabaseMusicWriteIsConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+  );
 }
 
 export function normalizeMusicText(value: string): string {
@@ -39,7 +48,7 @@ function releaseYear(releaseDate?: string): number | undefined {
 }
 
 async function ingestNormalizedTrack(track: SpotifyTrackCandidate): Promise<SpotifyIngestResult> {
-  const { url, key } = supabaseServiceConfig();
+  const { url, key, legacyBearer } = supabaseServiceConfig();
   const payload = {
     spotify_id: track.spotifyId,
     spotify_url: track.spotifyUrl ?? "",
@@ -59,13 +68,15 @@ async function ingestNormalizedTrack(track: SpotifyTrackCandidate): Promise<Spot
     })),
   };
 
+  const headers: Record<string, string> = {
+    apikey: key,
+    "Content-Type": "application/json",
+  };
+  if (legacyBearer) headers.Authorization = `Bearer ${key}`;
+
   const response = await fetch(`${url}/rest/v1/rpc/ingest_spotify_track`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ p_track: payload }),
     cache: "no-store",
   });
